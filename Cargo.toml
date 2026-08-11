@@ -1,0 +1,46 @@
+[package]
+name = "foundation"
+version = "0.1.0"
+edition = "2018"
+authors = ["arlomu"]
+description = "Foundation framework for TontooOS – Apple Foundation reimplemented in Rust for TontooOS"
+license = "MIT"
+repository = "https://github.com/arlomu/TontooFoundation"
+keywords = ["tontoo", "foundation", "utilities", "date", "url", "formatting"]
+categories = ["data-structures", "encoding"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.8"
+url = "2"
+regex = "1"
+quick-xml = "0.37"
+plist = "1"
+dirs = "5"
+thiserror = "1"
+once_cell = "1"
+uuid = { version = "1", features = ["v4"] }
+num = "0.4"
+num_cpus = "1"
+sys-info = "0.9"
+
+# HTTP client (URLSession equivalent)
+reqwest = { version = "0.12", features = ["blocking"], optional = true }
+
+# mDNS / Bonjour
+mdns-sd = { version = "0.11", optional = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+zbus = { version = "4", optional = true }
+
+[features]
+default = ["networking"]
+networking = ["reqwest"]
+bonjour = ["mdns-sd"]
+dbus = ["zbus"]
+
+[dev-dependencies]
+tempfile = "3"
