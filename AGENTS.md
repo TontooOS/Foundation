@@ -1,9 +1,11 @@
-## Basic
+## Repo
 
-Everything should be english comments etc
+Only Englisch in TontooOS Repos
 
-## If you are done
+## Finish
 
-Make sure to Commit it per Git
+Always Compile it with "wsl -d archlinux" or if there is no WSL use cargo check but first build it with cargo
 
-## If you have question always ask it the user!
+Make Sure to Run / Test new stuff
+
+### AND MAKE SURE TO ALWAYS UPDATE THE WIKI READ THE RULE.md AND MAIN.md!

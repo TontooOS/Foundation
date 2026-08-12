@@ -1,11 +1,11 @@
 [package]
 name = "foundation"
-version = "0.1.0"
+version = "26.1"
 edition = "2018"
 authors = ["arlomu"]
 description = "Foundation framework for TontooOS – Apple Foundation reimplemented in Rust for TontooOS"
-license = "MIT"
-repository = "https://github.com/arlomu/TontooFoundation"
+license = "TCL"
+repository = "https://github.com/TontooOS/foundation"
 keywords = ["tontoo", "foundation", "utilities", "date", "url", "formatting"]
 categories = ["data-structures", "encoding"]
 
