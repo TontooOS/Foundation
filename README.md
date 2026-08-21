@@ -12,7 +12,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-foundation = { path = "/Library/System/foundation.library" }
+foundation = { path = "/Library/System/foundation" }
 ```
 
 ## License
