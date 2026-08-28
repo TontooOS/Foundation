@@ -12,7 +12,14 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-foundation = { path = "/Library/System/foundation" }
+sdk = { path = "/Library/System/sdk", features = ["Foundation"] }
+```
+
+Then at the crate root:
+
+```rust
+sdk::preinclude!();
+use Foundation::{ /* ... */ };
 ```
 
 ## License

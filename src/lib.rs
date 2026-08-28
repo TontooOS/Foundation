@@ -590,3 +590,5 @@ mod tests {
         let _cache = FileManager::cache_directory();
     }
 }
+
+mod ffi;
