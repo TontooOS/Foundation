@@ -15,13 +15,6 @@ Add to your `Cargo.toml`:
 sdk = { path = "/Library/System/sdk", features = ["Foundation"] }
 ```
 
-Then at the crate root:
-
-```rust
-sdk::preinclude!();
-use Foundation::{ /* ... */ };
-```
-
 ## License
 
 TCL v26.1
