@@ -29,9 +29,6 @@ num = "0.4"
 num_cpus = "1"
 sys-info = "0.9"
 
-# HTTP client (URLSession equivalent)
-reqwest = { version = "0.12", features = ["blocking"], optional = true }
-
 # mDNS / Bonjour
 mdns-sd = { version = "0.11", optional = true }
 
@@ -40,8 +37,7 @@ libc = "0.2"
 zbus = { version = "4", optional = true }
 
 [features]
-default = ["networking"]
-networking = ["reqwest"]
+default = []
 bonjour = ["mdns-sd"]
 dbus = ["zbus"]
 

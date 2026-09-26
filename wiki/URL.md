@@ -138,6 +138,10 @@ pub fn with_timeout(self, seconds: u64) -> Self
 
 Returns `Err` from `with_json` when serialization fails.
 
+> **Note:** `URLRequest` only describes a request. Execution lives in
+> NetworkKit (`networkkit::http`), the single HTTP client for TontooOS.
+> Foundation carries no HTTP transport dependency.
+
 ## Usage
 
 ```rust
@@ -171,3 +175,4 @@ let request = URLRequest::new(url)
 
 - [File.md](File.md) - FileManager uses URLs for directory operations
 - [Serialization.md](Serialization.md) - JSON encoding for request bodies
+- [NetworkKit](https://github.com/TontooOS/Libs) - HTTP transport (`networkkit::http`) for sending `URLRequest`-shaped calls

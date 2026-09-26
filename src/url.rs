@@ -1,4 +1,4 @@
-//! URL – URL, URLComponents, URLSession
+//! URL – URL, URLComponents, URLRequest
 
 use crate::error::{FoundationError, Result};
 use std::collections::HashMap;

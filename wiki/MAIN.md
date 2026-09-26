@@ -55,4 +55,7 @@ See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 
 ## Changelog
 
+- 2026-09-26: Removed the unused `networking` feature and the optional
+  `reqwest` dependency. Foundation carries no HTTP transport; execution
+  lives in NetworkKit (`networkkit::http`).
 - 2026-08-12: Initial wiki created with all 16 feature pages.
