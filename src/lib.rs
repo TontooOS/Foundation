@@ -44,7 +44,7 @@ pub mod prelude {
     pub use crate::measurement::{Measurement, Unit, UnitType, UnitLength, UnitMass, UnitTemperature, UnitVolume};
     pub use crate::notification::{NotificationCenter, Notification};
     pub use crate::userdefaults::UserDefaults;
-    pub use crate::process::{ProcessInfo, OperatingSystemVersion};
+    pub use crate::process::{terminate_process, ProcessInfo, OperatingSystemVersion};
     pub use crate::threading::{Thread, OperationQueue, Lock, Mutex, Condition, RecursiveLock, ConditionLock};
     pub use crate::undo::UndoManager;
     pub use crate::predicate::{Predicate, SortDescriptor, PredicateOperator, Expression};

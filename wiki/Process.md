@@ -11,6 +11,7 @@ System process information providing Apple Foundation-like ProcessInfo for Tonto
 | `ThermalState` | Device thermal state enum |
 | `PowerState` | Power state enum |
 | `ProcessInfoActivityOptions` | Activity options flags |
+| `terminate_process` | Send `SIGKILL` to a pid (Linux) |
 
 ## ProcessInfo
 
@@ -58,6 +59,17 @@ pub fn is_mac_catalyst_app(&self) -> bool
 pub fn arguments(&self) -> Vec<String>
 pub fn environment(&self) -> HashMap<String, String>
 ```
+
+## terminate_process
+
+```rust
+pub fn terminate_process(pid: i32) -> Result<()>
+```
+
+Sends `SIGKILL` to a process id: immediate force quit with no cleanup
+(macOS Force Quit equivalent). Returns `Err` when the signal fails (unknown
+pid or denied). Linux only; other targets always return `Err`. Downstream
+crates use this instead of depending on `libc` directly.
 
 ## OperatingSystemVersion
 

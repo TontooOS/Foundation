@@ -149,6 +149,31 @@ pub enum PowerState {
     Full,
 }
 
+/// Send `SIGKILL` to a process id: immediate force quit, no cleanup and
+/// no save dialogs (macOS Force Quit equivalent).
+///
+/// Returns `Err` when the signal fails (unknown pid or denied).
+/// Linux only; other targets always return `Err`.
+#[cfg(target_os = "linux")]
+pub fn terminate_process(pid: i32) -> Result<()> {
+    let rc = unsafe { libc::kill(pid, libc::SIGKILL) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(crate::error::FoundationError::Unknown(
+            std::io::Error::last_os_error().to_string(),
+        ))
+    }
+}
+
+/// Non-Linux fallback: process termination is not supported.
+#[cfg(not(target_os = "linux"))]
+pub fn terminate_process(_pid: i32) -> Result<()> {
+    Err(crate::error::FoundationError::Unknown(
+        "process termination is only supported on Linux".to_string(),
+    ))
+}
+
 /// NSProcessInfoActivityOptions equivalent
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProcessInfoActivityOptions(u32);
