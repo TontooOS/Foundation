@@ -219,6 +219,19 @@ impl URLComponents {
         self.url.query = if query.is_empty() { None } else { Some(query.join("&")) };
     }
 
+    /// Append one query pair with `application/x-www-form-urlencoded`
+    /// percent-encoding, matching the `url` crate's
+    /// `query_pairs_mut().append_pair`: `A-Za-z0-9-_. *` stay as-is
+    /// (space becomes `+`), everything else becomes uppercase `%XX`.
+    pub fn append_query_pair(&mut self, key: &str, value: &str) {
+        let mut items = self.query_items();
+        items.push((
+            encode_query_component(key),
+            Some(encode_query_component(value)),
+        ));
+        self.set_query_items(&items);
+    }
+
     pub fn fragment(&self) -> Option<&str> {
         self.url.fragment.as_deref()
     }
@@ -234,6 +247,22 @@ impl URLComponents {
     pub fn string(&self) -> String {
         self.url.absolute_string()
     }
+}
+
+/// Percent-encode one query key or value (`application/x-www-form-urlencoded`
+/// byte serializer, matching the `url` crate).
+fn encode_query_component(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    for byte in input.bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'*' => {
+                out.push(byte as char)
+            }
+            b' ' => out.push('+'),
+            _ => out.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    out
 }
 
 impl Default for URLComponents {

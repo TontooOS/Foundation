@@ -78,6 +78,7 @@ pub fn query(&self) -> Option<&str>
 pub fn set_query(&mut self, query: Option<&str>)
 pub fn query_items(&self) -> Vec<(String, Option<String>)>
 pub fn set_query_items(&mut self, items: &[(String, Option<String>)])
+pub fn append_query_pair(&mut self, key: &str, value: &str)
 pub fn fragment(&self) -> Option<&str>
 pub fn set_fragment(&mut self, fragment: Option<&str>)
 pub fn url(&self) -> &URL
@@ -163,6 +164,11 @@ comps.set_scheme("https");
 comps.set_host("api.example.com");
 comps.set_path("/v1/users");
 assert_eq!(comps.string(), "https://api.example.com/v1/users");
+
+// Encoded query pairs (matches the `url` crate's query_pairs_mut)
+let mut search = URLComponents::from_str("https://example.com/search").unwrap();
+search.append_query_pair("q", "Cafe Central");
+assert_eq!(search.string(), "https://example.com/search?q=Cafe+Central");
 
 // HTTP request
 let request = URLRequest::new(url)

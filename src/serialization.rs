@@ -446,6 +446,173 @@ impl JsonObject {
     }
 }
 
+/// Recursive JSON value with a std-only surface.
+///
+/// Unlike [`JsonDocument`] (object roots only), `JsonValue` represents any
+/// JSON document: objects, arrays and scalars at any depth. `serde_json`
+/// stays an implementation detail of Foundation.
+///
+/// Object member order follows the parsed document.
+#[derive(Debug, Clone, PartialEq)]
+pub enum JsonValue {
+    Null,
+    Bool(bool),
+    Integer(i64),
+    Float(f64),
+    Str(String),
+    Array(Vec<JsonValue>),
+    Object(Vec<(String, JsonValue)>),
+}
+
+impl JsonValue {
+    /// Parse any JSON document (object, array or scalar at the root).
+    pub fn parse(s: &str) -> Result<Self> {
+        let value: serde_json::Value = serde_json::from_str(s)?;
+        Ok(Self::from_serde(&value))
+    }
+
+    fn from_serde(value: &serde_json::Value) -> Self {
+        match value {
+            serde_json::Value::Null => Self::Null,
+            serde_json::Value::Bool(b) => Self::Bool(*b),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    Self::Integer(i)
+                } else if let Some(u) = n.as_u64() {
+                    // Only reachable for u64 above i64::MAX; keep magnitude.
+                    Self::Float(u as f64)
+                } else if let Some(f) = n.as_f64() {
+                    Self::Float(f)
+                } else {
+                    Self::Str(n.to_string())
+                }
+            }
+            serde_json::Value::String(s) => Self::Str(s.clone()),
+            serde_json::Value::Array(items) => {
+                Self::Array(items.iter().map(Self::from_serde).collect())
+            }
+            serde_json::Value::Object(map) => Self::Object(
+                map.iter().map(|(k, v)| (k.clone(), Self::from_serde(v))).collect(),
+            ),
+        }
+    }
+
+    fn to_serde(&self) -> serde_json::Value {
+        match self {
+            Self::Null => serde_json::Value::Null,
+            Self::Bool(b) => serde_json::Value::Bool(*b),
+            Self::Integer(i) => serde_json::Value::Number((*i).into()),
+            Self::Float(f) => serde_json::Number::from_f64(*f)
+                .map(serde_json::Value::Number)
+                .unwrap_or(serde_json::Value::Null),
+            Self::Str(s) => serde_json::Value::String(s.clone()),
+            Self::Array(items) => {
+                serde_json::Value::Array(items.iter().map(|v| v.to_serde()).collect())
+            }
+            Self::Object(entries) => {
+                let mut map = serde_json::Map::with_capacity(entries.len());
+                for (k, v) in entries {
+                    map.insert(k.clone(), v.to_serde());
+                }
+                serde_json::Value::Object(map)
+            }
+        }
+    }
+
+    /// Render as JSON text.
+    pub fn stringify(&self, pretty: bool) -> String {
+        let value = self.to_serde();
+        if pretty {
+            serde_json::to_string_pretty(&value).unwrap_or_else(|_| "null".to_string())
+        } else {
+            serde_json::to_string(&value).unwrap_or_else(|_| "null".to_string())
+        }
+    }
+
+    /// Object member, if this is an object containing `key`.
+    pub fn get(&self, key: &str) -> Option<&Self> {
+        match self {
+            Self::Object(entries) => entries.iter().find(|(k, _)| k == key).map(|(_, v)| v),
+            _ => None,
+        }
+    }
+
+    /// Array element, if this is an array containing `index`.
+    pub fn at(&self, index: usize) -> Option<&Self> {
+        match self {
+            Self::Array(items) => items.get(index),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Self::Str(s) => Some(s),
+            _ => None,
+        }
+    }
+
+    pub fn as_f64(&self) -> Option<f64> {
+        match self {
+            Self::Float(f) => Some(*f),
+            Self::Integer(i) => Some(*i as f64),
+            _ => None,
+        }
+    }
+
+    pub fn as_i64(&self) -> Option<i64> {
+        match self {
+            Self::Integer(i) => Some(*i),
+            _ => None,
+        }
+    }
+
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Self::Integer(i) => u64::try_from(*i).ok(),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(b) => Some(*b),
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&Vec<Self>> {
+        match self {
+            Self::Array(items) => Some(items),
+            _ => None,
+        }
+    }
+
+    /// Object members in document order, if this is an object.
+    pub fn object_entries(&self) -> Option<&[(String, Self)]> {
+        match self {
+            Self::Object(entries) => Some(entries),
+            _ => None,
+        }
+    }
+
+    pub fn is_null(&self) -> bool {
+        matches!(self, Self::Null)
+    }
+
+    pub fn is_object(&self) -> bool {
+        matches!(self, Self::Object(_))
+    }
+
+    pub fn is_string(&self) -> bool {
+        matches!(self, Self::Str(_))
+    }
+
+    pub fn is_array(&self) -> bool {
+        matches!(self, Self::Array(_))
+    }
+}
+
 /// NSPropertyListSerialization equivalent
 pub struct PropertyList;
 

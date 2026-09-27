@@ -36,7 +36,7 @@ pub mod prelude {
     pub use crate::date::{Date, Calendar, CalendarIdentifier, DateFormatter, TimeZone, Locale, ISO8601DateFormatter, DateComponents, DateStyle};
     pub use crate::url::{URL, URLComponents, HTTPMethod, URLRequest};
     pub use crate::file::{FileManager, FileHandle, Bundle};
-    pub use crate::serialization::{JSONSerialization, JsonDocument, JsonObject, PropertyList};
+    pub use crate::serialization::{JSONSerialization, JsonDocument, JsonObject, JsonValue, PropertyList};
     pub use crate::formatting::{
         NumberFormatter, ByteCountFormatter,
         MeasurementFormatter,
@@ -374,6 +374,41 @@ mod tests {
         comps.set_port(Some(443));
         comps.set_path("/test");
         assert_eq!(comps.url().scheme(), Some("https"));
+    }
+
+    #[test]
+    fn test_append_query_pair_encoding() {
+        // Vectors verified against the `url` crate's query_pairs_mut.
+        let cases = [
+            ("Cafe Central", "q=Cafe+Central"),
+            ("Hauptstraße", "q=Hauptstra%C3%9Fe"),
+            ("a&b=c", "q=a%26b%3Dc"),
+            ("100%", "q=100%25"),
+            ("a+b", "q=a%2Bb"),
+            ("foo/bar", "q=foo%2Fbar"),
+            ("~tilde", "q=%7Etilde"),
+            ("*'()!", "q=*%27%28%29%21"),
+            ("-_.", "q=-_."),
+            ("52.5200,13.4050", "q=52.5200%2C13.4050"),
+        ];
+        for (input, expected) in cases {
+            let mut comps = URLComponents::from_str("https://example.com/search").unwrap();
+            comps.append_query_pair("q", input);
+            assert_eq!(comps.string(), format!("https://example.com/search?{}", expected), "input {input:?}");
+        }
+    }
+
+    #[test]
+    fn test_json_value_roundtrip() {
+        use crate::serialization::JsonValue;
+        let doc = JsonValue::parse(r#"{"a":[1,"x",true,null],"o":{"n":1.5}}"#).unwrap();
+        assert_eq!(doc.get("a").and_then(|v| v.at(0)).and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(doc.get("o").and_then(|v| v.get("n")).and_then(|v| v.as_f64()), Some(1.5));
+        let back = JsonValue::parse(&doc.stringify(false)).unwrap();
+        assert_eq!(doc, back);
+        let arr = JsonValue::parse("[1,2]").unwrap();
+        assert!(arr.is_array());
+        assert_eq!(arr.at(1).and_then(|v| v.as_i64()), Some(2));
     }
 
     // ========== serialization.rs ==========

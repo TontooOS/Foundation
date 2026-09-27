@@ -7,8 +7,9 @@ Data serialization providing Apple Foundation-like JSON, PropertyList, and XML o
 | Type | Description |
 |---|---|
 | `JSONSerialization` | JSON encode/decode, incl. std-only helpers |
-| `JsonDocument` | Read-only parsed JSON for serde-free callers |
+| `JsonDocument` | Read-only parsed JSON objects for serde-free callers |
 | `JsonObject` | JSON object builder for serde-free callers |
+| `JsonValue` | Recursive JSON value (any root, arrays, nesting) |
 | `PropertyList` | Property list serialization |
 | `XMLParser` | XML parsing |
 | `XMLDocument` | Parsed XML document |
@@ -123,6 +124,35 @@ pub fn build(&self, pretty: bool) -> Result<String>
 values with a `Parse` error. `field_raw` inserts pre-rendered JSON (validated
 by parsing it) for nesting objects and arrays. `extend` merges another object,
 with the argument winning on conflicts.
+
+## JsonValue
+
+Recursive JSON value for callers without `serde`. Unlike `JsonDocument`
+(object roots only), `JsonValue` represents any document: objects, arrays
+and scalars at any depth. `serde_json` stays an implementation detail of
+Foundation.
+
+```rust
+pub enum JsonValue { Null, Bool(bool), Integer(i64), Float(f64), Str(String), Array(Vec<JsonValue>), Object(Vec<(String, JsonValue)>) }
+pub fn parse(s: &str) -> Result<Self>
+pub fn get(&self, key: &str) -> Option<&Self>
+pub fn at(&self, index: usize) -> Option<&Self>
+pub fn as_str(&self) -> Option<&str>
+pub fn as_f64(&self) -> Option<f64>
+pub fn as_i64(&self) -> Option<i64>
+pub fn as_u64(&self) -> Option<u64>
+pub fn as_bool(&self) -> Option<bool>
+pub fn as_array(&self) -> Option<&Vec<Self>>
+pub fn object_entries(&self) -> Option<&[(String, Self)]>
+pub fn is_null(&self) -> bool
+pub fn is_object(&self) -> bool
+pub fn is_string(&self) -> bool
+pub fn is_array(&self) -> bool
+pub fn stringify(&self, pretty: bool) -> String
+```
+
+`as_f64` coerces integers; `as_u64` accepts non-negative integers. Trees
+are built directly as enum values and rendered with `stringify`.
 
 ## PropertyList
 
