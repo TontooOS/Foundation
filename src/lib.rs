@@ -3,6 +3,7 @@
 //! Provides the core data types, utilities, and system services that
 //! Foundation provides on Apple platforms, adapted for TontooOS on Linux.
 
+pub mod async_runtime;
 pub mod error;
 pub mod string;
 pub mod collections;
@@ -28,6 +29,7 @@ pub const FOUNDATION_VERSION: (u32, u32, u32) = (0, 1, 0);
 
 /// Convenience prelude that re-exports the most commonly used types.
 pub mod prelude {
+    pub use crate::async_runtime::{spawn_blocking, JoinError, JoinHandle, Runtime, Handle, RuntimeBuilder};
     pub use crate::error::{FoundationError, Result};
     pub use crate::string::{TString, Scanner, RegularExpression, DataDetector, DetectorKind};
     pub use crate::collections::{Array, Dictionary, Set};

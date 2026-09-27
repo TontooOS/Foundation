@@ -28,6 +28,9 @@ uuid = { version = "1", features = ["v4"] }
 num = "0.4"
 num_cpus = "1"
 sys-info = "0.9"
+# Central async runtime: frameworks use foundation::async_runtime instead of
+# depending on Tokio directly.
+tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 
 # mDNS / Bonjour
 mdns-sd = { version = "0.11", optional = true }

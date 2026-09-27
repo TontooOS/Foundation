@@ -16,6 +16,7 @@ Concurrency primitives providing Apple Foundation-like Thread, OperationQueue, a
 | `ConditionLock` | Condition-based lock |
 | `DispatchQueue` | Serial/concurrent dispatch queue |
 | `DispatchGroup` | Group synchronization |
+| `async_runtime` | Central Tokio runtime re-export (`spawn_blocking`, `Runtime`) |
 
 ## Thread
 
@@ -150,6 +151,28 @@ pub fn notify<F>(&self, queue: &DispatchQueue, f: F)
 ```
 
 `wait_timeout` returns `true` if all operations completed, `false` on timeout.
+
+## AsyncRuntime
+
+Central async runtime so frameworks share one Tokio version. Use
+`foundation::async_runtime` instead of depending on Tokio directly.
+
+```rust
+pub mod async_runtime;
+pub use tokio::task::{spawn_blocking, JoinHandle, JoinError};
+pub use tokio::runtime::{Runtime, Handle, RuntimeBuilder as RuntimeBuilder};
+```
+
+Driving async functions still requires an active Tokio runtime on the caller
+side (e.g. `#[tokio::main]` or `Runtime::block_on`).
+
+```rust
+use foundation::async_runtime::{RuntimeBuilder, spawn_blocking};
+
+let rt = RuntimeBuilder::new_current_thread().build().unwrap();
+let result = rt.block_on(async { spawn_blocking(|| 40 + 2).await.unwrap() });
+assert_eq!(result, 42);
+```
 
 ## Usage
 
