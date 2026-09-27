@@ -83,6 +83,7 @@ implementation detail of Foundation.
 pub struct JsonDocument;
 pub fn parse(s: &str) -> Result<Self>
 pub fn empty() -> Self
+pub fn has(&self, field: &str) -> bool
 pub fn str_field(&self, field: &str) -> Result<Option<String>>
 pub fn f64_field(&self, field: &str) -> Result<Option<f64>>
 pub fn i64_field(&self, field: &str) -> Result<Option<i64>>
@@ -90,13 +91,14 @@ pub fn u64_field(&self, field: &str) -> Result<Option<u64>>
 pub fn bool_field(&self, field: &str) -> Result<Option<bool>>
 pub fn nested(&self, field: &str) -> Result<Option<JsonDocument>>
 pub fn array_field(&self, field: &str) -> Result<Vec<JsonDocument>>
+pub fn string_map_field(&self, field: &str) -> Result<HashMap<String, String>>
 ```
 
-Absent or null fields yield `None` (or an empty vector for `array_field`);
-wrong types yield a `Parse` error. Float fields accept integer and float JSON
-numbers; unsigned fields accept non-negative integers. `array_field` skips
-non-object elements. `empty()` returns an empty object document, useful as a
-fallback when an optional section is missing.
+Absent or null fields yield `None` (or an empty vector/map for `array_field`
+and `string_map_field`); wrong types yield a `Parse` error. Float fields
+accept integer and float JSON numbers; unsigned fields accept non-negative
+integers. `array_field` skips non-object elements. `empty()` returns an empty
+object document, useful as a fallback when an optional section is missing.
 
 ## JsonObject
 
@@ -108,11 +110,19 @@ pub fn new() -> Self
 pub fn field_str(&mut self, key: &str, value: &str) -> &mut Self
 pub fn field_opt_str(&mut self, key: &str, value: Option<&str>) -> &mut Self
 pub fn field_f64(&mut self, key: &str, value: f64) -> Result<&mut Self>
+pub fn field_u64(&mut self, key: &str, value: u64) -> &mut Self
+pub fn field_i64(&mut self, key: &str, value: i64) -> &mut Self
+pub fn field_bool(&mut self, key: &str, value: bool) -> &mut Self
+pub fn field_null(&mut self, key: &str) -> &mut Self
+pub fn field_raw(&mut self, key: &str, raw_json: &str) -> Result<&mut Self>
+pub fn extend(&mut self, other: &JsonObject) -> &mut Self
 pub fn build(&self, pretty: bool) -> Result<String>
 ```
 
 `field_opt_str` with `None` writes `null`. `field_f64` rejects non-finite
-values with a `Parse` error.
+values with a `Parse` error. `field_raw` inserts pre-rendered JSON (validated
+by parsing it) for nesting objects and arrays. `extend` merges another object,
+with the argument winning on conflicts.
 
 ## PropertyList
 

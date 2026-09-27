@@ -192,7 +192,7 @@ impl JSONSerialization {
 ///
 /// `serde_json` stays an implementation detail of Foundation: callers work
 /// with `String`, `f64`, `i64` and nested `JsonDocument` values only.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JsonDocument {
     value: serde_json::Value,
 }
@@ -298,6 +298,14 @@ impl JsonDocument {
         }
     }
 
+    /// Whether `field` is present and not null.
+    pub fn has(&self, field: &str) -> bool {
+        !matches!(
+            self.obj().ok().and_then(|o| o.get(field)),
+            None | Some(serde_json::Value::Null)
+        )
+    }
+
     /// Optional array-of-objects field. Absent, null or non-array fields
     /// yield an empty vector; non-object elements are skipped.
     pub fn array_field(&self, field: &str) -> Result<Vec<JsonDocument>> {
@@ -316,6 +324,29 @@ impl JsonDocument {
     pub fn empty() -> Self {
         Self {
             value: serde_json::Value::Object(serde_json::Map::new()),
+        }
+    }
+
+    /// Object-of-strings field as a map. Missing or null fields yield an
+    /// empty map; non-string values yield a `Parse` error.
+    pub fn string_map_field(&self, field: &str) -> Result<HashMap<String, String>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(HashMap::new()),
+            Some(serde_json::Value::Object(map)) => {
+                let mut out = HashMap::with_capacity(map.len());
+                for (k, v) in map {
+                    match v {
+                        serde_json::Value::String(text) => {
+                            out.insert(k.clone(), text.clone());
+                        }
+                        _ => {
+                            return Err(Self::type_error(field, "an object of strings"));
+                        }
+                    }
+                }
+                Ok(out)
+            }
+            Some(_) => Err(Self::type_error(field, "an object of strings")),
         }
     }
 }
@@ -359,6 +390,50 @@ impl JsonObject {
         self.map
             .insert(key.to_string(), serde_json::Value::Number(n));
         Ok(self)
+    }
+
+    pub fn field_u64(&mut self, key: &str, value: u64) -> &mut Self {
+        self.map.insert(
+            key.to_string(),
+            serde_json::Value::Number(serde_json::Number::from(value)),
+        );
+        self
+    }
+
+    pub fn field_i64(&mut self, key: &str, value: i64) -> &mut Self {
+        self.map.insert(
+            key.to_string(),
+            serde_json::Value::Number(serde_json::Number::from(value)),
+        );
+        self
+    }
+
+    pub fn field_bool(&mut self, key: &str, value: bool) -> &mut Self {
+        self.map
+            .insert(key.to_string(), serde_json::Value::Bool(value));
+        self
+    }
+
+    pub fn field_null(&mut self, key: &str) -> &mut Self {
+        self.map.insert(key.to_string(), serde_json::Value::Null);
+        self
+    }
+
+    /// Insert pre-rendered JSON under `key`. The fragment is validated by
+    /// parsing it, so callers can nest objects and arrays they built
+    /// elsewhere (e.g. with another `JsonObject`).
+    pub fn field_raw(&mut self, key: &str, raw_json: &str) -> Result<&mut Self> {
+        let value: serde_json::Value = serde_json::from_str(raw_json)?;
+        self.map.insert(key.to_string(), value);
+        Ok(self)
+    }
+
+    /// Merge another object into this one; `other` wins on conflicts.
+    pub fn extend(&mut self, other: &JsonObject) -> &mut Self {
+        for (k, v) in &other.map {
+            self.map.insert(k.clone(), v.clone());
+        }
+        self
     }
 
     pub fn build(&self, pretty: bool) -> Result<String> {
