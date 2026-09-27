@@ -19,17 +19,7 @@ chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.8"
 url = "2"
 regex = "1"
-quick-xml = "0.37"
 plist = "1"
-dirs = "5"
-thiserror = "1"
-once_cell = "1"
-uuid = { version = "1", features = ["v4"] }
-num = "0.4"
-num_cpus = "1"
-sys-info = "0.9"
-# Central async runtime: frameworks use foundation::async_runtime instead of
-# depending on Tokio directly.
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 
 # mDNS / Bonjour
@@ -43,6 +33,3 @@ zbus = { version = "4", optional = true }
 default = []
 bonjour = ["mdns-sd"]
 dbus = ["zbus"]
-
-[dev-dependencies]
-tempfile = "3"

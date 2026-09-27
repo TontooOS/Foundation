@@ -28,6 +28,7 @@ Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data
 | Predicate | [Predicate.md](Predicate.md) | Predicate, SortDescriptor, Expression |
 | Progress | [Progress.md](Progress.md) | Progress tracking |
 | Bonjour | [Bonjour.md](Bonjour.md) | mDNS/NetService (feature-gated) |
+| Dependencies | [Dependencies.md](Dependencies.md) | Std-only policy and per-dependency verdicts |
 
 ## Quick Start
 
@@ -54,6 +55,10 @@ fn main() {
 See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 
 ## Changelog
+
+- 2026-09-27: Removed all replaceable third-party dependencies. Foundation
+  is std-only except `libc` (plus optional `mdns-sd` and `zbus`). See
+  [Dependencies.md](Dependencies.md).
 
 - 2026-09-26: Removed the unused `networking` feature and the optional
   `reqwest` dependency. Foundation carries no HTTP transport; execution

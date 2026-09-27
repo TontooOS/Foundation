@@ -24,11 +24,11 @@ impl ProcessInfo {
     }
 
     pub fn globally_unique_string(&self) -> String {
-        uuid::Uuid::new_v4().to_string()
+        crate::uuid::new_v4_string()
     }
 
     pub fn operating_system_version(&self) -> OperatingSystemVersion {
-        let info = sys_info::os_release().unwrap_or_default();
+        let info = crate::sysinfo::os_release();
         OperatingSystemVersion {
             major: 0,
             minor: 0,
@@ -45,26 +45,20 @@ impl ProcessInfo {
     }
 
     pub fn physical_memory(&self) -> u64 {
-        sys_info::mem_info().map(|m| m.total).unwrap_or(0) * 1024
+        crate::sysinfo::mem_total_bytes()
     }
 
+    /// Number of logical processors.
     pub fn processor_count(&self) -> usize {
-        num_cpus::get()
+        processor_count()
     }
 
     pub fn active_processor_count(&self) -> usize {
-        num_cpus::get()
+        processor_count()
     }
 
     pub fn system_uptime(&self) -> f64 {
-        #[cfg(not(windows))]
-        {
-            sys_info::boottime().map(|bt| bt.tv_sec as f64).unwrap_or(0.0)
-        }
-        #[cfg(windows)]
-        {
-            0.0
-        }
+        crate::sysinfo::system_uptime()
     }
 
     pub fn arguments(&self) -> Vec<String> {
@@ -76,12 +70,12 @@ impl ProcessInfo {
     }
 
     pub fn host_name(&self) -> Option<String> {
-        sys_info::hostname().ok()
+        crate::sysinfo::hostname()
     }
 
     pub fn operating_system_version_string(&self) -> String {
-        let info = sys_info::os_type().unwrap_or_default();
-        let release = sys_info::os_release().unwrap_or_default();
+        let info = crate::sysinfo::os_type();
+        let release = crate::sysinfo::os_release();
         format!("{} {}", info, release)
     }
 
@@ -106,6 +100,12 @@ impl ProcessInfo {
     }
 }
 
+/// Number of logical processors, at least 1.
+fn processor_count() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get())
+        .unwrap_or(1)
+}
 /// NSOperatingSystemVersion equivalent
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OperatingSystemVersion {

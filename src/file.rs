@@ -98,19 +98,15 @@ impl FileManager {
     }
 
     pub fn home_directory() -> PathBuf {
-        dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
+        crate::paths::home_dir()
     }
 
     pub fn document_directory() -> PathBuf {
-        dirs::document_dir().unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join("Documents")
-        })
+        crate::paths::document_dir()
     }
 
     pub fn cache_directory() -> PathBuf {
-        dirs::cache_dir().unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join(".cache")
-        })
+        crate::paths::cache_dir()
     }
 
     pub fn temp_directory() -> PathBuf {
@@ -118,25 +114,19 @@ impl FileManager {
     }
 
     pub fn application_support_directory() -> PathBuf {
-        dirs::data_dir().unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join(".local/share")
-        })
+        crate::paths::data_dir()
     }
 
     pub fn desktop_directory() -> PathBuf {
-        dirs::desktop_dir().unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join("Desktop")
-        })
+        crate::paths::desktop_dir()
     }
 
     pub fn downloads_directory() -> PathBuf {
-        dirs::download_dir().unwrap_or_else(|| {
-            dirs::home_dir().unwrap_or_default().join("Downloads")
-        })
+        crate::paths::download_dir()
     }
 
     pub fn trash_directory() -> PathBuf {
-        dirs::home_dir().unwrap_or_default().join(".local/share/Trash/files")
+        crate::paths::home_dir().join(".local/share/Trash/files")
     }
 
     pub fn urls_for_directory(&self, directory: FileManagerDirectory, domain: FileManagerDomain) -> Result<Vec<PathBuf>> {

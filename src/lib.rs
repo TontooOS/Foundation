@@ -5,6 +5,9 @@
 
 pub mod async_runtime;
 pub mod error;
+mod paths;
+mod sysinfo;
+mod uuid;
 pub mod string;
 pub mod collections;
 pub mod date;

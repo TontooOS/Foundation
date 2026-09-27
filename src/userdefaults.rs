@@ -4,10 +4,6 @@ use crate::error::{FoundationError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
-
-static USER_DEFAULTS: once_cell::sync::Lazy<Mutex<HashMap<String, HashMap<String, String>>>> =
-    once_cell::sync::Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// NSUserDefaults equivalent
 pub struct UserDefaults {
@@ -19,8 +15,7 @@ pub struct UserDefaults {
 
 impl UserDefaults {
     pub fn standard() -> Self {
-        let path = dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
+        let path = crate::paths::config_dir()
             .join("TontooOS")
             .join("defaults.json");
 
@@ -33,8 +28,7 @@ impl UserDefaults {
     }
 
     pub fn new_with_suite(suite: &str) -> Self {
-        let path = dirs::config_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
+        let path = crate::paths::config_dir()
             .join("TontooOS")
             .join(format!("defaults_{}.json", suite));
 

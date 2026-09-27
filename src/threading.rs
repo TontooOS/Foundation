@@ -150,7 +150,9 @@ impl OperationQueue {
     pub fn new() -> Self {
         Self {
             operations: Arc::new(StdMutex::new(VecDeque::new())),
-            max_concurrent: num_cpus::get(),
+            max_concurrent: std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
             suspended: Arc::new(StdMutex::new(false)),
             name: None,
         }
