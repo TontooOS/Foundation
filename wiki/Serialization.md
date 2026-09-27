@@ -152,6 +152,8 @@ pub fn is_array(&self) -> bool
 pub fn stringify(&self, pretty: bool) -> String
 ```
 
+`JsonValue` implements `Default` (`Null`) and `Display` (compact JSON).
+
 `as_f64` coerces integers; `as_u64` accepts non-negative integers. Trees
 are built directly as enum values and rendered with `stringify`. `pointer`
 resolves JSON Pointer paths (`/data/next_1_hours/details/x`, `~0`/`~1`
