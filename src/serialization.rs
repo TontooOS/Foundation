@@ -268,6 +268,56 @@ impl JsonDocument {
             Some(_) => Err(Self::type_error(field, "an object")),
         }
     }
+
+    /// Optional unsigned integer field. Accepts non-negative integers.
+    /// `None` when absent or null.
+    pub fn u64_field(&self, field: &str) -> Result<Option<u64>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::Number(n)) => {
+                if let Some(v) = n.as_u64() {
+                    Ok(Some(v))
+                } else if let Some(v) = n.as_i64() {
+                    u64::try_from(v)
+                        .map(Some)
+                        .map_err(|_| Self::type_error(field, "an unsigned integer"))
+                } else {
+                    Err(Self::type_error(field, "an unsigned integer"))
+                }
+            }
+            Some(_) => Err(Self::type_error(field, "an unsigned integer")),
+        }
+    }
+
+    /// Optional boolean field. `None` when absent or null.
+    pub fn bool_field(&self, field: &str) -> Result<Option<bool>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::Bool(b)) => Ok(Some(*b)),
+            Some(_) => Err(Self::type_error(field, "a boolean")),
+        }
+    }
+
+    /// Optional array-of-objects field. Absent, null or non-array fields
+    /// yield an empty vector; non-object elements are skipped.
+    pub fn array_field(&self, field: &str) -> Result<Vec<JsonDocument>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(Vec::new()),
+            Some(serde_json::Value::Array(items)) => Ok(items
+                .iter()
+                .filter(|v| v.is_object())
+                .map(|v| JsonDocument { value: v.clone() })
+                .collect()),
+            Some(_) => Ok(Vec::new()),
+        }
+    }
+
+    /// An empty JSON object document (`{}`).
+    pub fn empty() -> Self {
+        Self {
+            value: serde_json::Value::Object(serde_json::Map::new()),
+        }
+    }
 }
 
 /// Small JSON object builder with a std-only surface.
