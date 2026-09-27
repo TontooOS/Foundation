@@ -32,7 +32,7 @@ pub mod prelude {
     pub use crate::async_runtime::{spawn_blocking, JoinError, JoinHandle, Runtime, Handle, RuntimeBuilder};
     pub use crate::error::{FoundationError, Result};
     pub use crate::string::{TString, Scanner, RegularExpression, DataDetector, DetectorKind};
-    pub use crate::collections::{Array, Dictionary, Set};
+    pub use crate::collections::{Array, Dictionary, OrderedMap, OrderedIter, Set};
     pub use crate::date::{Date, Calendar, CalendarIdentifier, DateFormatter, TimeZone, Locale, ISO8601DateFormatter, DateComponents, DateStyle};
     pub use crate::url::{URL, URLComponents, HTTPMethod, URLRequest};
     pub use crate::file::{FileManager, FileHandle, Bundle};
@@ -246,6 +246,33 @@ mod tests {
         assert_eq!(set.count(), 3);
         assert!(set.contains(&2));
         assert!(!set.contains(&4));
+    }
+
+    #[test]
+    fn test_ordered_map() {
+        use crate::collections::OrderedMap;
+        let mut map: OrderedMap<String, i32> = OrderedMap::new();
+        map.insert("b".to_string(), 2);
+        map.insert("a".to_string(), 1);
+        assert_eq!(map.get("a"), Some(&1));
+        assert_eq!(map.get("missing"), None);
+        assert!(map.contains_key("b"));
+        // insertion order, replace keeps position
+        let keys: Vec<&String> = map.iter().map(|(k, _)| k).collect();
+        assert_eq!(keys, [&"b".to_string(), &"a".to_string()]);
+        assert_eq!(map.insert("b".to_string(), 20), Some(2));
+        assert_eq!(map.get("b"), Some(&20));
+        // order-insensitive equality
+        let mut other: OrderedMap<String, i32> = OrderedMap::new();
+        other.insert("a".to_string(), 1);
+        other.insert("b".to_string(), 20);
+        assert_eq!(map, other);
+        // shift_remove preserves order
+        assert_eq!(map.shift_remove("b"), Some(20));
+        assert_eq!(map.len(), 1);
+        let collected: OrderedMap<String, i32> =
+            vec![("x".to_string(), 1)].into_iter().collect();
+        assert_eq!(collected.get("x"), Some(&1));
     }
 
     // ========== date.rs ==========

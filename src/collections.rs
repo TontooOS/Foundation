@@ -279,3 +279,133 @@ impl<T: std::hash::Hash + Eq> From<std::collections::HashSet<T>> for Set<T> {
         Self::from_set(s)
     }
 }
+
+/// Insertion-ordered map: `HashMap`-style lookup with stable,
+/// insertion-order iteration (replacement for `indexmap::IndexMap`).
+///
+/// Backed by a `Vec`, so lookups are O(n). Suited for small maps such as
+/// config tables. Equality is order-insensitive like a regular map.
+#[derive(Debug, Clone, Default)]
+pub struct OrderedMap<K, V> {
+    entries: Vec<(K, V)>,
+}
+
+impl<K, V> OrderedMap<K, V> {
+    pub fn new() -> Self {
+        Self { entries: Vec::new() }
+    }
+
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
+    /// Insert a key/value pair. An existing key keeps its position and its
+    /// old value is returned.
+    pub fn insert(&mut self, key: K, value: V) -> Option<V>
+    where
+        K: PartialEq,
+    {
+        match self.entries.iter().position(|(k, _)| *k == key) {
+            Some(index) => Some(std::mem::replace(&mut self.entries[index].1, value)),
+            None => {
+                self.entries.push((key, value));
+                None
+            }
+        }
+    }
+
+    pub fn get<Q: ?Sized>(&self, key: &Q) -> Option<&V>
+    where
+        K: PartialEq<Q>,
+    {
+        self.entries.iter().find(|(k, _)| *k == *key).map(|(_, v)| v)
+    }
+
+    pub fn get_mut<Q: ?Sized>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        K: PartialEq<Q>,
+    {
+        self.entries.iter_mut().find(|(k, _)| *k == *key).map(|(_, v)| v)
+    }
+
+    pub fn contains_key<Q: ?Sized>(&self, key: &Q) -> bool
+    where
+        K: PartialEq<Q>,
+    {
+        self.get(key).is_some()
+    }
+
+    /// Remove a key, preserving the order of the remaining entries.
+    pub fn shift_remove<Q: ?Sized>(&mut self, key: &Q) -> Option<V>
+    where
+        K: PartialEq<Q>,
+    {
+        let index = self.entries.iter().position(|(k, _)| *k == *key)?;
+        Some(self.entries.remove(index).1)
+    }
+
+    pub fn iter(&self) -> OrderedIter<'_, K, V> {
+        OrderedIter { inner: self.entries.iter() }
+    }
+}
+
+/// Borrowed iterator over [`OrderedMap`] entries, in insertion order.
+#[derive(Debug, Clone)]
+pub struct OrderedIter<'a, K, V> {
+    inner: std::slice::Iter<'a, (K, V)>,
+}
+
+impl<'a, K, V> Iterator for OrderedIter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.inner.next().map(|(k, v)| (k, v))
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.inner.size_hint()
+    }
+}
+
+impl<'a, K, V> IntoIterator for &'a OrderedMap<K, V> {
+    type Item = (&'a K, &'a V);
+    type IntoIter = OrderedIter<'a, K, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
+impl<K, V> IntoIterator for OrderedMap<K, V> {
+    type Item = (K, V);
+    type IntoIter = std::vec::IntoIter<(K, V)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.entries.into_iter()
+    }
+}
+
+impl<K: PartialEq, V: PartialEq> PartialEq for OrderedMap<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len()
+            && self.iter().all(|(k, v)| other.get(k) == Some(v))
+    }
+}
+
+impl<K: PartialEq, V> FromIterator<(K, V)> for OrderedMap<K, V> {
+    fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
+        let mut map = Self::new();
+        for (k, v) in iter {
+            map.insert(k, v);
+        }
+        map
+    }
+}

@@ -8,6 +8,7 @@ Collection types providing Apple Foundation-like ordered, keyed, and unique data
 |---|---|
 | `Array<T>` | Ordered collection (NSArray equivalent) |
 | `Dictionary<K, V>` | Key-value collection (NSDictionary equivalent) |
+| `OrderedMap<K, V>` | Insertion-ordered map (indexmap replacement) |
 | `Set<T>` | Unordered unique collection (NSSet equivalent) |
 
 ## Array
@@ -100,6 +101,43 @@ pub fn filter<F>(&self, predicate: F) -> Self
 ```
 
 Requires `K: std::hash::Hash + Eq`.
+
+## OrderedMap
+
+Insertion-ordered map backed by a `Vec`: `HashMap`-style lookup with
+stable iteration order. Replaces `indexmap::IndexMap` for downstream
+crates (e.g. FishFile tables). Lookups are O(n); suited for small maps.
+Equality is order-insensitive like a regular map.
+
+```rust
+pub struct OrderedMap<K, V>;
+pub fn new() -> Self
+pub fn len(&self) -> usize
+pub fn is_empty(&self) -> bool
+pub fn clear(&mut self)
+pub fn insert(&mut self, key: K, value: V) -> Option<V>
+pub fn get(&self, key: &Q) -> Option<&V>
+pub fn get_mut(&mut self, key: &Q) -> Option<&mut V>
+pub fn contains_key(&self, key: &Q) -> bool
+pub fn shift_remove(&self, key: &Q) -> Option<V>
+pub fn iter(&self) -> OrderedIter<'_, K, V>
+```
+
+`insert` keeps the original position of an existing key and returns its
+old value. `shift_remove` preserves the order of the remaining entries.
+`&OrderedMap` and owned `OrderedMap` both iterate `(K, V)` pairs, and
+`FromIterator` is implemented, so `collect()` works.
+
+```rust
+use tontoo_foundation::prelude::*;
+
+let mut map: OrderedMap<String, i32> = OrderedMap::new();
+map.insert("b".to_string(), 2);
+map.insert("a".to_string(), 1);
+assert_eq!(map.get("a"), Some(&1));
+let keys: Vec<&String> = map.iter().map(|(k, _)| k).collect();
+assert_eq!(keys, [&"b".to_string(), &"a".to_string()]);
+```
 
 ## Set
 
