@@ -6,7 +6,9 @@ Data serialization providing Apple Foundation-like JSON, PropertyList, and XML o
 
 | Type | Description |
 |---|---|
-| `JSONSerialization` | JSON encode/decode |
+| `JSONSerialization` | JSON encode/decode, incl. std-only helpers |
+| `JsonDocument` | Read-only parsed JSON for serde-free callers |
+| `JsonObject` | JSON object builder for serde-free callers |
 | `PropertyList` | Property list serialization |
 | `XMLParser` | XML parsing |
 | `XMLDocument` | Parsed XML document |
@@ -64,6 +66,46 @@ pub fn stringify_lang_file(lang: &str, translations: &HashMap<String, String>, p
 It returns `Err` on invalid JSON, a missing or non-string `lang` field, or a
 `translations` field that is not an object of strings. `stringify_lang_file`
 builds the same document shape with correct JSON escaping.
+
+```rust
+pub fn parse_flat_string_map(s: &str) -> Result<HashMap<String, String>>
+```
+
+Parses a flat `{"key": "value"}` document. Returns `Err` when the root is not
+an object or any value is not a string.
+
+## JsonDocument
+
+Read-only parsed document for callers without `serde`. `serde_json` stays an
+implementation detail of Foundation.
+
+```rust
+pub struct JsonDocument;
+pub fn parse(s: &str) -> Result<Self>
+pub fn str_field(&self, field: &str) -> Result<Option<String>>
+pub fn f64_field(&self, field: &str) -> Result<Option<f64>>
+pub fn i64_field(&self, field: &str) -> Result<Option<i64>>
+pub fn nested(&self, field: &str) -> Result<Option<JsonDocument>>
+```
+
+Absent or null fields yield `None`; wrong types yield a `Parse` error. Float
+fields accept integer and float JSON numbers.
+
+## JsonObject
+
+Small builder for JSON objects, also without `serde` on the caller side.
+
+```rust
+pub struct JsonObject;
+pub fn new() -> Self
+pub fn field_str(&mut self, key: &str, value: &str) -> &mut Self
+pub fn field_opt_str(&mut self, key: &str, value: Option<&str>) -> &mut Self
+pub fn field_f64(&mut self, key: &str, value: f64) -> Result<&mut Self>
+pub fn build(&self, pretty: bool) -> Result<String>
+```
+
+`field_opt_str` with `None` writes `null`. `field_f64` rejects non-finite
+values with a `Parse` error.
 
 ## PropertyList
 

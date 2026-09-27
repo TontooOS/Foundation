@@ -161,6 +161,164 @@ impl JSONSerialization {
             Ok(serde_json::to_string(&value)?)
         }
     }
+
+    /// Parse a flat object-of-strings document (`{"key": "value"}`).
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    pub fn parse_flat_string_map(s: &str) -> Result<HashMap<String, String>> {
+        let value: serde_json::Value = serde_json::from_str(s)?;
+        let obj = value.as_object().ok_or_else(|| {
+            FoundationError::Parse("Root must be an object".to_string())
+        })?;
+        let mut out = HashMap::with_capacity(obj.len());
+        for (k, v) in obj {
+            match v {
+                serde_json::Value::String(text) => {
+                    out.insert(k.clone(), text.clone());
+                }
+                _ => {
+                    return Err(FoundationError::Parse(format!(
+                        "Field '{}' must be a string",
+                        k
+                    )));
+                }
+            }
+        }
+        Ok(out)
+    }
+}
+
+/// Read-only JSON document with a std-only surface.
+///
+/// `serde_json` stays an implementation detail of Foundation: callers work
+/// with `String`, `f64`, `i64` and nested `JsonDocument` values only.
+#[derive(Debug, Clone)]
+pub struct JsonDocument {
+    value: serde_json::Value,
+}
+
+impl JsonDocument {
+    /// Parse a JSON document. The root must be an object.
+    pub fn parse(s: &str) -> Result<Self> {
+        let value: serde_json::Value = serde_json::from_str(s)?;
+        if !value.is_object() {
+            return Err(FoundationError::Parse("Root must be an object".to_string()));
+        }
+        Ok(Self { value })
+    }
+
+    fn obj(&self) -> Result<&serde_json::Map<String, serde_json::Value>> {
+        self.value.as_object().ok_or_else(|| {
+            FoundationError::Parse("Root must be an object".to_string())
+        })
+    }
+
+    fn type_error(field: &str, expected: &str) -> FoundationError {
+        FoundationError::Parse(format!("Field '{}' must be {}", field, expected))
+    }
+
+    /// Optional string field. `None` when absent or null.
+    pub fn str_field(&self, field: &str) -> Result<Option<String>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::String(text)) => Ok(Some(text.clone())),
+            Some(_) => Err(Self::type_error(field, "a string")),
+        }
+    }
+
+    /// Optional float field. Accepts integer and float JSON numbers.
+    /// `None` when absent or null.
+    pub fn f64_field(&self, field: &str) -> Result<Option<f64>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::Number(n)) => n
+                .as_f64()
+                .map(Some)
+                .ok_or_else(|| Self::type_error(field, "a number")),
+            Some(_) => Err(Self::type_error(field, "a number")),
+        }
+    }
+
+    /// Optional integer field. `None` when absent or null.
+    pub fn i64_field(&self, field: &str) -> Result<Option<i64>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::Number(n)) => {
+                if let Some(v) = n.as_i64() {
+                    Ok(Some(v))
+                } else if let Some(v) = n.as_u64() {
+                    i64::try_from(v)
+                        .map(Some)
+                        .map_err(|_| Self::type_error(field, "an integer"))
+                } else {
+                    Err(Self::type_error(field, "an integer"))
+                }
+            }
+            Some(_) => Err(Self::type_error(field, "an integer")),
+        }
+    }
+
+    /// Optional nested object field. `None` when absent or null.
+    pub fn nested(&self, field: &str) -> Result<Option<JsonDocument>> {
+        match self.obj()?.get(field) {
+            None | Some(serde_json::Value::Null) => Ok(None),
+            Some(serde_json::Value::Object(_)) => Ok(Some(JsonDocument {
+                value: self.obj()?.get(field).cloned().unwrap_or_default(),
+            })),
+            Some(_) => Err(Self::type_error(field, "an object")),
+        }
+    }
+}
+
+/// Small JSON object builder with a std-only surface.
+#[derive(Debug, Clone, Default)]
+pub struct JsonObject {
+    map: serde_json::Map<String, serde_json::Value>,
+}
+
+impl JsonObject {
+    pub fn new() -> Self {
+        Self {
+            map: serde_json::Map::new(),
+        }
+    }
+
+    pub fn field_str(&mut self, key: &str, value: &str) -> &mut Self {
+        self.map.insert(
+            key.to_string(),
+            serde_json::Value::String(value.to_string()),
+        );
+        self
+    }
+
+    pub fn field_opt_str(&mut self, key: &str, value: Option<&str>) -> &mut Self {
+        match value {
+            Some(v) => self.field_str(key, v),
+            None => {
+                self.map
+                    .insert(key.to_string(), serde_json::Value::Null);
+                self
+            }
+        }
+    }
+
+    pub fn field_f64(&mut self, key: &str, value: f64) -> Result<&mut Self> {
+        let n = serde_json::Number::from_f64(value).ok_or_else(|| {
+            FoundationError::Parse(format!("Field '{}' is not finite", key))
+        })?;
+        self.map
+            .insert(key.to_string(), serde_json::Value::Number(n));
+        Ok(self)
+    }
+
+    pub fn build(&self, pretty: bool) -> Result<String> {
+        let value = serde_json::Value::Object(self.map.clone());
+        if pretty {
+            Ok(serde_json::to_string_pretty(&value)?)
+        } else {
+            Ok(serde_json::to_string(&value)?)
+        }
+    }
 }
 
 /// NSPropertyListSerialization equivalent

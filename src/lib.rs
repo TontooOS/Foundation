@@ -34,7 +34,7 @@ pub mod prelude {
     pub use crate::date::{Date, Calendar, CalendarIdentifier, DateFormatter, TimeZone, Locale, ISO8601DateFormatter, DateComponents, DateStyle};
     pub use crate::url::{URL, URLComponents, HTTPMethod, URLRequest};
     pub use crate::file::{FileManager, FileHandle, Bundle};
-    pub use crate::serialization::{JSONSerialization, PropertyList};
+    pub use crate::serialization::{JSONSerialization, JsonDocument, JsonObject, PropertyList};
     pub use crate::formatting::{
         NumberFormatter, ByteCountFormatter,
         MeasurementFormatter,
