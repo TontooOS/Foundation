@@ -43,6 +43,124 @@ impl JSONSerialization {
     pub fn json_value(s: &str) -> Result<serde_json::Value> {
         Ok(serde_json::from_str(s)?)
     }
+
+    /// Extract a top-level string field from a JSON object.
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    /// Returns `Ok(None)` when the field is absent, `Err` when the document
+    /// is not an object or the field exists but is not a string.
+    pub fn parse_string_field(s: &str, field: &str) -> Result<Option<String>> {
+        let value: serde_json::Value = serde_json::from_str(s)?;
+        let obj = value.as_object().ok_or_else(|| {
+            FoundationError::Parse("Root must be an object".to_string())
+        })?;
+        match obj.get(field) {
+            None => Ok(None),
+            Some(serde_json::Value::String(text)) => Ok(Some(text.clone())),
+            Some(_) => Err(FoundationError::Parse(format!(
+                "Field '{}' must be a string",
+                field
+            ))),
+        }
+    }
+
+    /// Extract a top-level object-of-strings field from a JSON object.
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    /// Returns an empty map when the field is absent, `Err` when the field
+    /// exists but is not an object with only string values.
+    pub fn parse_string_map_field(
+        s: &str,
+        field: &str,
+    ) -> Result<HashMap<String, String>> {
+        let value: serde_json::Value = serde_json::from_str(s)?;
+        let obj = value.as_object().ok_or_else(|| {
+            FoundationError::Parse("Root must be an object".to_string())
+        })?;
+        match obj.get(field) {
+            None => Ok(HashMap::new()),
+            Some(serde_json::Value::Object(map)) => {
+                let mut out = HashMap::with_capacity(map.len());
+                for (k, v) in map {
+                    match v {
+                        serde_json::Value::String(text) => {
+                            out.insert(k.clone(), text.clone());
+                        }
+                        _ => {
+                            return Err(FoundationError::Parse(format!(
+                                "Field '{}.{}' must be a string",
+                                field, k
+                            )));
+                        }
+                    }
+                }
+                Ok(out)
+            }
+            Some(_) => Err(FoundationError::Parse(format!(
+                "Field '{}' must be an object",
+                field
+            ))),
+        }
+    }
+
+    /// Serialize a string map to JSON.
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    pub fn stringify_string_map(map: &HashMap<String, String>, pretty: bool) -> Result<String> {
+        let mut value = serde_json::Map::with_capacity(map.len());
+        for (k, v) in map {
+            value.insert(k.clone(), serde_json::Value::String(v.clone()));
+        }
+        let root = serde_json::Value::Object(value);
+        if pretty {
+            Ok(serde_json::to_string_pretty(&root)?)
+        } else {
+            Ok(serde_json::to_string(&root)?)
+        }
+    }
+
+    /// Parse a language file document of the form
+    /// `{"lang": "en_us", "translations": {"key": "value"}}`.
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    /// Returns `(lang, translations)`. Missing `translations` yields an empty
+    /// map; a missing or non-string `lang` is an error.
+    pub fn parse_lang_file(s: &str) -> Result<(String, HashMap<String, String>)> {
+        let lang = Self::parse_string_field(s, "lang")?.ok_or_else(|| {
+            FoundationError::Parse("Missing 'lang' field".to_string())
+        })?;
+        let translations = Self::parse_string_map_field(s, "translations")?;
+        Ok((lang, translations))
+    }
+
+    /// Stringify a language file document.
+    ///
+    /// std-only signature: callers need no `serde` dependency.
+    pub fn stringify_lang_file(
+        lang: &str,
+        translations: &HashMap<String, String>,
+        pretty: bool,
+    ) -> Result<String> {
+        let mut map = serde_json::Map::with_capacity(translations.len());
+        for (k, v) in translations {
+            map.insert(k.clone(), serde_json::Value::String(v.clone()));
+        }
+        let mut root = serde_json::Map::with_capacity(2);
+        root.insert(
+            "lang".to_string(),
+            serde_json::Value::String(lang.to_string()),
+        );
+        root.insert(
+            "translations".to_string(),
+            serde_json::Value::Object(map),
+        );
+        let value = serde_json::Value::Object(root);
+        if pretty {
+            Ok(serde_json::to_string_pretty(&value)?)
+        } else {
+            Ok(serde_json::to_string(&value)?)
+        }
+    }
 }
 
 /// NSPropertyListSerialization equivalent

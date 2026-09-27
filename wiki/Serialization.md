@@ -46,6 +46,25 @@ pub fn is_valid_json_data(data: &[u8]) -> bool
 pub fn json_value(s: &str) -> Result<serde_json::Value>
 ```
 
+### Std-only helpers (no serde needed by callers)
+
+These methods expose JSON through `std` types only (`String`,
+`HashMap<String, String>`), so downstream crates can drop their `serde`
+dependency. `serde_json` is used internally by Foundation only.
+
+```rust
+pub fn parse_string_field(s: &str, field: &str) -> Result<Option<String>>
+pub fn parse_string_map_field(s: &str, field: &str) -> Result<HashMap<String, String>>
+pub fn stringify_string_map(map: &HashMap<String, String>, pretty: bool) -> Result<String>
+pub fn parse_lang_file(s: &str) -> Result<(String, HashMap<String, String>)>
+pub fn stringify_lang_file(lang: &str, translations: &HashMap<String, String>, pretty: bool) -> Result<String>
+```
+
+`parse_lang_file` expects `{"lang": "en_us", "translations": {"key": "value"}}`.
+It returns `Err` on invalid JSON, a missing or non-string `lang` field, or a
+`translations` field that is not an object of strings. `stringify_lang_file`
+builds the same document shape with correct JSON escaping.
+
 ## PropertyList
 
 Static methods for property list serialization.
