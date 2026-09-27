@@ -137,6 +137,7 @@ pub enum JsonValue { Null, Bool(bool), Integer(i64), Float(f64), Str(String), Ar
 pub fn parse(s: &str) -> Result<Self>
 pub fn get(&self, key: &str) -> Option<&Self>
 pub fn at(&self, index: usize) -> Option<&Self>
+pub fn pointer(&self, path: &str) -> Option<&Self>
 pub fn as_str(&self) -> Option<&str>
 pub fn as_f64(&self) -> Option<f64>
 pub fn as_i64(&self) -> Option<i64>
@@ -152,7 +153,9 @@ pub fn stringify(&self, pretty: bool) -> String
 ```
 
 `as_f64` coerces integers; `as_u64` accepts non-negative integers. Trees
-are built directly as enum values and rendered with `stringify`.
+are built directly as enum values and rendered with `stringify`. `pointer`
+resolves JSON Pointer paths (`/data/next_1_hours/details/x`, `~0`/`~1`
+escapes), returning `None` for bad pointers and missing members.
 
 ## PropertyList
 

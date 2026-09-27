@@ -596,6 +596,28 @@ impl JsonValue {
         }
     }
 
+    /// JSON Pointer lookup (`/data/next_1_hours/details/precipitation_amount`).
+    /// `~0` escapes `~`, `~1` escapes `/`. Returns `None` for bad pointers,
+    /// missing members and index errors.
+    pub fn pointer(&self, path: &str) -> Option<&Self> {
+        if path.is_empty() {
+            return Some(self);
+        }
+        if !path.starts_with('/') {
+            return None;
+        }
+        let mut current = self;
+        for token in path.split('/').skip(1) {
+            let key = token.replace("~1", "/").replace("~0", "~");
+            if current.is_array() {
+                current = current.at(key.parse::<usize>().ok()?)?;
+            } else {
+                current = current.get(&key)?;
+            }
+        }
+        Some(current)
+    }
+
     pub fn is_null(&self) -> bool {
         matches!(self, Self::Null)
     }

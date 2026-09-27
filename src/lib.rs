@@ -399,6 +399,18 @@ mod tests {
     }
 
     #[test]
+    fn test_json_value_pointer() {
+        use crate::serialization::JsonValue;
+        let doc = JsonValue::parse(r#"{"a": [{"b": 1}], "x~y": {"a/b": 2}}"#).unwrap();
+        assert_eq!(doc.pointer("/a/0/b").and_then(|v| v.as_i64()), Some(1));
+        assert_eq!(doc.pointer("/x~0y/a~1b").and_then(|v| v.as_i64()), Some(2));
+        assert_eq!(doc.pointer(""), Some(&doc));
+        assert!(doc.pointer("a").is_none());
+        assert!(doc.pointer("/missing").is_none());
+        assert!(doc.pointer("/a/5").is_none());
+    }
+
+    #[test]
     fn test_json_value_roundtrip() {
         use crate::serialization::JsonValue;
         let doc = JsonValue::parse(r#"{"a":[1,"x",true,null],"o":{"n":1.5}}"#).unwrap();
