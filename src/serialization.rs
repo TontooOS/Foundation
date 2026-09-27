@@ -626,12 +626,29 @@ impl JsonValue {
         matches!(self, Self::Object(_))
     }
 
+    /// Compact JSON text (same as `stringify(false)`).
+    pub fn to_compact_string(&self) -> String {
+        self.stringify(false)
+    }
+
     pub fn is_string(&self) -> bool {
         matches!(self, Self::Str(_))
     }
 
     pub fn is_array(&self) -> bool {
         matches!(self, Self::Array(_))
+    }
+}
+
+impl Default for JsonValue {
+    fn default() -> Self {
+        Self::Null
+    }
+}
+
+impl std::fmt::Display for JsonValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.stringify(false))
     }
 }
 
