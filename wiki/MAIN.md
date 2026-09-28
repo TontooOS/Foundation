@@ -21,6 +21,7 @@ Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data
 | Formatting | [Formatting.md](Formatting.md) | Number, ByteCount, Measurement, List formatters |
 | Measurement | [Measurement.md](Measurement.md) | Measurement + 13 Unit categories |
 | Notification | [Notification.md](Notification.md) | NotificationCenter |
+| Pasteboard | [Pasteboard.md](Pasteboard.md) | Native text clipboard (Wayland data-control, X11 ICCCM) |
 | UserDefaults | [UserDefaults.md](UserDefaults.md) | UserDefaults, UbiquitousKeyValueStore |
 | Process | [Process.md](Process.md) | ProcessInfo, OS Version |
 | Threading | [Threading.md](Threading.md) | Thread, Queue, Lock, Mutex, Dispatch |
@@ -56,6 +57,9 @@ See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 
 ## Changelog
 
+- 2026-09-28: Native `NSPasteboard` text clipboard (hand-written Wayland
+  data-control and X11 ICCCM backends, std-only plus `libc`); used by
+  TontooUI text fields instead of `arboard`.
 - 2026-09-27: Removed all replaceable third-party dependencies. Foundation
   is std-only except `libc` (plus optional `mdns-sd` and `zbus`). See
   [Dependencies.md](Dependencies.md).

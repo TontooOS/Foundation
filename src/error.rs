@@ -31,6 +31,8 @@ pub enum FoundationError {
 
     Bonjour(String),
 
+    Clipboard(String),
+
     Cancelled,
 
     Unknown(String),
@@ -53,6 +55,7 @@ impl std::fmt::Display for FoundationError {
             Self::PermissionDenied(e) => write!(f, "Permission denied: {e}"),
             Self::Network(e) => write!(f, "Network error: {e}"),
             Self::Bonjour(e) => write!(f, "Bonjour/mDNS error: {e}"),
+            Self::Clipboard(e) => write!(f, "Clipboard error: {e}"),
             Self::Cancelled => write!(f, "Operation cancelled"),
             Self::Unknown(e) => write!(f, "Unknown error: {e}"),
         }
