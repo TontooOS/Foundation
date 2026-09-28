@@ -339,11 +339,16 @@ impl URLRequest {
         self
     }
 
-    pub fn with_json<T: serde::Serialize>(mut self, data: &T) -> Result<Self> {
-        let json = serde_json::to_vec(data)?;
-        self.body = Some(json);
+    pub fn with_json_value(mut self, data: &crate::serialization::JsonValue) -> Self {
+        self.body = Some(data.stringify(false).into_bytes());
         self.headers.insert("Content-Type".to_string(), "application/json".to_string());
-        Ok(self)
+        self
+    }
+
+    pub fn with_json_text(mut self, json: &str) -> Self {
+        self.body = Some(json.as_bytes().to_vec());
+        self.headers.insert("Content-Type".to_string(), "application/json".to_string());
+        self
     }
 
     pub fn with_timeout(mut self, seconds: u64) -> Self {

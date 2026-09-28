@@ -74,14 +74,8 @@ impl From<std::io::Error> for FoundationError {
     }
 }
 
-// Temporary bridges while downstream modules still use third-party crates.
-// Each bridge is deleted together with the dependency it covers.
-impl From<serde_json::Error> for FoundationError {
-    fn from(e: serde_json::Error) -> Self {
-        Self::Serialization(e.to_string())
-    }
-}
-
+// Temporary bridge while `string.rs` still uses the `regex` crate.
+// Deleted together with the dependency.
 impl From<regex::Error> for FoundationError {
     fn from(e: regex::Error) -> Self {
         Self::InvalidRegex(e.to_string())

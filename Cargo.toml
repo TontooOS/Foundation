@@ -13,8 +13,6 @@ keywords = ["tontoo", "foundation", "utilities", "date", "url", "formatting"]
 categories = ["data-structures", "encoding"]
 
 [dependencies]
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.8"
 url = "2"

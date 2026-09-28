@@ -542,9 +542,15 @@ mod tests {
 
     #[test]
     fn scalars_roundtrip() {
-        for text in ["null", "true", "false", "0", "-12", "1.5", "-0.25", "1e3", "\"hi\""] {
+        // Text identity for canonical scalars ...
+        for text in ["null", "true", "false", "0", "-12", "1.5", "-0.25", "\"hi\""] {
             let v = JsonValue::parse(text).unwrap();
             assert_eq!(v.stringify(false), text, "scalar {text}");
+        }
+        // ... and value identity for non-canonical numbers.
+        for text in ["1e3", "1E+2", "0.30000000000000004"] {
+            let v = JsonValue::parse(text).unwrap();
+            assert_eq!(JsonValue::parse(&v.stringify(false)).unwrap(), v, "scalar {text}");
         }
     }
 

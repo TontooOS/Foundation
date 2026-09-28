@@ -391,14 +391,12 @@ impl Bundle {
         let info_json = self.path.join("Info.json");
 
         if info_plist.exists() {
-            let content = fs::read_to_string(&info_plist)?;
-            let plist: HashMap<String, String> = plist::from_file(&info_plist)
-                .map_err(|e| FoundationError::InvalidPlist(e.to_string()))?;
-            self.info = Some(plist.into_iter().map(|(k, v)| (k, v.to_string())).collect());
+            let content = fs::read(&info_plist)?;
+            let value = crate::plist::parse_xml(&content)?;
+            self.info = Some(crate::plist::value_to_strings(&value)?);
         } else if info_json.exists() {
             let content = fs::read_to_string(&info_json)?;
-            let info: HashMap<String, String> = serde_json::from_str(&content)?;
-            self.info = Some(info);
+            self.info = Some(crate::serialization::JSONSerialization::parse_flat_string_map(&content)?);
         }
         Ok(())
     }

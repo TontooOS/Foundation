@@ -1,7 +1,7 @@
 //! UserDefaults – persistent settings
 
 use crate::error::{FoundationError, Result};
-use serde::{Deserialize, Serialize};
+use crate::serialization::JSONSerialization;
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -43,8 +43,10 @@ impl UserDefaults {
     pub fn init(&mut self) -> Result<()> {
         if self.file_path.exists() {
             let content = std::fs::read_to_string(&self.file_path)?;
-            let data: HashMap<String, String> = serde_json::from_str(&content)?;
-            self.cache = data;
+            let content = content.trim();
+            if !content.is_empty() {
+                self.cache = JSONSerialization::parse_flat_string_map(content)?;
+            }
         }
         Ok(())
     }
@@ -57,7 +59,7 @@ impl UserDefaults {
         if let Some(parent) = self.file_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        let json = serde_json::to_string_pretty(&self.cache)?;
+        let json = JSONSerialization::stringify_string_map(&self.cache, true)?;
         std::fs::write(&self.file_path, json)?;
         Ok(())
     }
@@ -106,24 +108,15 @@ impl UserDefaults {
         self.cache.insert(key.to_string(), value.to_string());
     }
 
-    pub fn array<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
-        self.cache.get(key).and_then(|s| serde_json::from_str(s).ok())
+    /// Raw JSON value stored under `key`, if it parses.
+    pub fn json(&self, key: &str) -> Option<crate::serialization::JsonValue> {
+        self.cache
+            .get(key)
+            .and_then(|s| crate::serialization::JsonValue::parse(s).ok())
     }
 
-    pub fn set_array<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()> {
-        let json = serde_json::to_string(value)?;
-        self.cache.insert(key.to_string(), json);
-        Ok(())
-    }
-
-    pub fn dictionary<T: serde::de::DeserializeOwned>(&self, key: &str) -> Option<T> {
-        self.cache.get(key).and_then(|s| serde_json::from_str(s).ok())
-    }
-
-    pub fn set_dictionary<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()> {
-        let json = serde_json::to_string(value)?;
-        self.cache.insert(key.to_string(), json);
-        Ok(())
+    pub fn set_json(&mut self, key: &str, value: &crate::serialization::JsonValue) {
+        self.cache.insert(key.to_string(), value.stringify(false));
     }
 
     pub fn data(&self, key: &str) -> Option<&str> {
@@ -187,7 +180,7 @@ impl UserDefaults {
     }
 
     pub fn representation(&self) -> String {
-        serde_json::to_string_pretty(&self.cache).unwrap_or_default()
+        JSONSerialization::stringify_string_map(&self.cache, true).unwrap_or_default()
     }
 
     pub fn file_path(&self) -> &std::path::Path {

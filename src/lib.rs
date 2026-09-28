@@ -5,7 +5,9 @@
 
 pub mod async_runtime;
 pub mod error;
+mod json;
 mod paths;
+mod plist;
 mod sysinfo;
 mod uuid;
 pub mod string;
@@ -430,9 +432,9 @@ mod tests {
     #[test]
     fn test_json_serialization() {
         let data: std::collections::HashMap<String, String> = vec![("key".to_string(), "value".to_string())].into_iter().collect();
-        let json = JSONSerialization::to_string(&data).unwrap();
+        let json = JSONSerialization::stringify_string_map(&data, false).unwrap();
         assert!(json.contains("key"));
-        let parsed: std::collections::HashMap<String, String> = JSONSerialization::from_string(&json).unwrap();
+        let parsed = JSONSerialization::parse_flat_string_map(&json).unwrap();
         assert_eq!(parsed.get("key"), Some(&"value".to_string()));
     }
 
