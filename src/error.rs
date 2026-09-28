@@ -74,14 +74,6 @@ impl From<std::io::Error> for FoundationError {
     }
 }
 
-// Temporary bridge while `string.rs` still uses the `regex` crate.
-// Deleted together with the dependency.
-impl From<regex::Error> for FoundationError {
-    fn from(e: regex::Error) -> Self {
-        Self::InvalidRegex(e.to_string())
-    }
-}
-
 /// Common result type for TontooFoundation
 pub type Result<T> = std::result::Result<T, FoundationError>;
 

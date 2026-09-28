@@ -1,7 +1,7 @@
 //! String utilities – TString, Scanner, RegularExpression, DataDetector
 
 use crate::error::{FoundationError, Result};
-use regex::Regex;
+use crate::regex_engine::{result_to_foundation, RegexEngine};
 use std::fmt;
 
 /// Immutable string type with Foundation-like API (wraps String)
@@ -140,11 +140,11 @@ impl Scanner {
     }
 
     pub fn scan_regex(&mut self, pattern: &str) -> Option<TString> {
-        let re = Regex::new(pattern).ok()?;
+        let re = RegexEngine::new(pattern).ok()?;
         let remaining = &self.source.as_str()[self.position..];
-        if let Some(mat) = re.find(remaining) {
-            self.position += mat.end();
-            Some(TString::from_str(mat.as_str()))
+        if let Some((start, end)) = re.find(remaining) {
+            self.position += end;
+            Some(TString::from_str(&remaining[start..end]))
         } else {
             None
         }
@@ -161,13 +161,13 @@ impl Scanner {
 
 /// NSRegularExpression equivalent
 pub struct RegularExpression {
-    regex: Regex,
+    regex: RegexEngine,
     pattern: String,
 }
 
 impl RegularExpression {
     pub fn new(pattern: &str) -> Result<Self> {
-        let regex = Regex::new(pattern)?;
+        let regex = result_to_foundation(RegexEngine::new(pattern))?;
         Ok(Self { regex, pattern: pattern.to_string() })
     }
 
@@ -176,23 +176,32 @@ impl RegularExpression {
     }
 
     pub fn matches(&self, text: &str) -> Vec<String> {
-        self.regex.find_iter(text).map(|m| m.as_str().to_string()).collect()
+        self.regex
+            .find_all(text)
+            .iter()
+            .map(|m| {
+                let (s, e) = m.whole();
+                text[s..e].to_string()
+            })
+            .collect()
     }
 
     pub fn first_match(&self, text: &str) -> Option<String> {
-        self.regex.find(text).map(|m| m.as_str().to_string())
+        self.regex.find(text).map(|(s, e)| text[s..e].to_string())
     }
 
     pub fn replace(&self, text: &str, replacement: &str) -> String {
-        self.regex.replace_all(text, replacement).to_string()
+        self.regex.replace_all(text, replacement)
     }
 
     pub fn capture_groups(&self, text: &str) -> Vec<Vec<String>> {
-        self.regex.captures_iter(text)
+        self.regex
+            .captures_all(text)
+            .into_iter()
             .filter_map(|caps| {
                 caps.iter()
                     .skip(1)
-                    .map(|m| m.map(|mm| mm.as_str().to_string()))
+                    .map(|m| m.map(|(s, e)| text[s..e].to_string()))
                     .collect::<Option<Vec<_>>>()
             })
             .collect()
@@ -206,7 +215,7 @@ impl RegularExpression {
 /// NSDataDetector equivalent – detects dates, URLs, addresses, phone numbers
 pub struct DataDetector {
     kind: DetectorKind,
-    regex: Regex,
+    regex: RegexEngine,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -234,16 +243,20 @@ impl DataDetector {
             DetectorKind::Address => r"\d+\s+\w+",
             DetectorKind::TransitInfo => r"[A-Z]{2}\d{6,}",
         };
-        let regex = Regex::new(pattern)?;
+        let regex = result_to_foundation(RegexEngine::new(pattern))?;
         Ok(Self { kind, regex })
     }
 
     pub fn detect(&self, text: &str) -> Vec<DetectedData> {
-        self.regex.find_iter(text)
-            .map(|m| DetectedData {
-                kind: self.kind,
-                value: m.as_str().to_string(),
-                range: (m.start(), m.end()),
+        self.regex.find_all(text)
+            .into_iter()
+            .map(|m| {
+                let (start, end) = m.whole();
+                DetectedData {
+                    kind: self.kind,
+                    value: text[start..end].to_string(),
+                    range: (start, end),
+                }
             })
             .collect()
     }

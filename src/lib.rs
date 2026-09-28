@@ -8,6 +8,7 @@ pub mod error;
 mod json;
 mod paths;
 mod plist;
+mod regex_engine;
 mod sysinfo;
 mod uuid;
 pub mod string;
