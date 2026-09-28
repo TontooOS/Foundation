@@ -13,7 +13,6 @@ keywords = ["tontoo", "foundation", "utilities", "date", "url", "formatting"]
 categories = ["data-structures", "encoding"]
 
 [dependencies]
-tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 
 # mDNS / Bonjour
 mdns-sd = { version = "0.11", optional = true }
