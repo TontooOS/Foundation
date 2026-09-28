@@ -3,8 +3,8 @@
 Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data types, utilities, and system services adapted from Apple's Foundation framework.
 
 - Repository: https://github.com/arlomu/TontooFoundation
-- License: MIT
-- Version: 0.1.0
+- License: TCL
+- Version: 26.1.0
 
 ## Feature Index
 
