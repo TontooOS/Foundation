@@ -1,8 +1,9 @@
-//! Date & Time – Date, Calendar, DateFormatter, TimeZone, Locale
+//! Date & Time – Date, Calendar, DateFormatter, TimeZone, Locale (std-only)
 
+use crate::datetime::local_offset;
 use crate::error::{FoundationError, Result};
-use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime, TimeZone as ChronoTimeZone, Timelike, Utc};
-use chrono_tz::Tz;
+
+pub use crate::datetime::{NaiveDate, NaiveDateTime};
 
 /// NSDate equivalent – represents a point in time
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -12,7 +13,11 @@ pub struct Date {
 
 impl Date {
     pub fn now() -> Self {
-        Self { timestamp: Utc::now().timestamp() }
+        let secs = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+        Self { timestamp: secs }
     }
 
     pub fn from_timestamp(secs: i64) -> Self {
@@ -20,7 +25,7 @@ impl Date {
     }
 
     pub fn from_unix_millis(millis: i64) -> Self {
-        Self { timestamp: millis / 1000 }
+        Self { timestamp: millis.div_euclid(1000) }
     }
 
     pub fn timestamp(&self) -> i64 {
@@ -28,23 +33,23 @@ impl Date {
     }
 
     pub fn timestamp_millis(&self) -> i64 {
-        self.timestamp * 1000
+        self.timestamp.saturating_mul(1000)
     }
 
     pub fn adding_seconds(&self, secs: i64) -> Self {
-        Self { timestamp: self.timestamp + secs }
+        Self { timestamp: self.timestamp.saturating_add(secs) }
     }
 
     pub fn adding_minutes(&self, mins: i64) -> Self {
-        self.adding_seconds(mins * 60)
+        self.adding_seconds(mins.saturating_mul(60))
     }
 
     pub fn adding_hours(&self, hours: i64) -> Self {
-        self.adding_seconds(hours * 3600)
+        self.adding_seconds(hours.saturating_mul(3600))
     }
 
     pub fn adding_days(&self, days: i64) -> Self {
-        self.adding_seconds(days * 86400)
+        self.adding_seconds(days.saturating_mul(86400))
     }
 
     pub fn time_interval_since(&self, other: &Date) -> f64 {
@@ -60,15 +65,13 @@ impl Date {
     }
 
     pub fn to_utc(&self) -> NaiveDateTime {
-        chrono::DateTime::from_timestamp(self.timestamp, 0)
-            .map(|dt| dt.naive_utc())
-            .unwrap_or_else(|| NaiveDateTime::UNIX_EPOCH)
+        NaiveDateTime::from_timestamp(self.timestamp)
     }
 
     pub fn to_local(&self) -> NaiveDateTime {
-        let dt = chrono::DateTime::from_timestamp(self.timestamp, 0)
-            .unwrap_or_else(|| chrono::DateTime::<Utc>::UNIX_EPOCH);
-        dt.with_timezone(&Local).naive_local()
+        NaiveDateTime::from_timestamp(
+            self.timestamp.saturating_add(local_offset(self.timestamp)),
+        )
     }
 }
 
@@ -169,38 +172,41 @@ impl Calendar {
                 comps.second as u32,
                 comps.nanosecond as u32,
             )?;
-        Some(Date::from_timestamp(naive.and_utc().timestamp()))
+        Some(Date::from_timestamp(naive.timestamp()))
     }
 
     pub fn start_of_day(&self, date: &Date) -> Date {
         let naive = date.to_local();
         let start = naive.date().and_hms_opt(0, 0, 0).unwrap();
-        Date::from_timestamp(start.and_utc().timestamp())
+        Date::from_timestamp(start.timestamp())
     }
 
     pub fn start_of_week(&self, date: &Date) -> Date {
         let naive = date.to_local();
         let weekday = naive.weekday().num_days_from_monday() as i64;
-        let start = naive.date() - Duration::days(weekday);
-        let start = start.and_hms_opt(0, 0, 0).unwrap();
-        Date::from_timestamp(start.and_utc().timestamp())
+        let days = naive.date();
+        let start_days = days.timestamp_days().saturating_sub(weekday);
+        let start = NaiveDate::from_days(start_days).and_hms_opt(0, 0, 0).unwrap();
+        Date::from_timestamp(start.timestamp())
     }
 
     pub fn start_of_month(&self, date: &Date) -> Date {
         let naive = date.to_local();
-        let start = NaiveDate::from_ymd_opt(naive.year(), naive.month(), 1).unwrap()
-            .and_hms_opt(0, 0, 0).unwrap();
-        Date::from_timestamp(start.and_utc().timestamp())
+        let start = NaiveDate::from_ymd_opt(naive.year(), naive.month(), 1)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
+        Date::from_timestamp(start.timestamp())
     }
 
     pub fn add_components(&self, date: &Date, comps: &DateComponents) -> Option<Date> {
         let naive = date.to_local();
         let result = naive
-            .checked_add_signed(Duration::days(comps.day as i64))?
-            .checked_add_signed(Duration::hours(comps.hour as i64))?
-            .checked_add_signed(Duration::minutes(comps.minute as i64))?
-            .checked_add_signed(Duration::seconds(comps.second as i64))?;
-        Some(Date::from_timestamp(result.and_utc().timestamp()))
+            .checked_add_seconds(comps.day as i64 * 86400)?
+            .checked_add_seconds(comps.hour as i64 * 3600)?
+            .checked_add_seconds(comps.minute as i64 * 60)?
+            .checked_add_seconds(comps.second as i64)?;
+        Some(Date::from_timestamp(result.timestamp()))
     }
 
     pub fn identifier(&self) -> CalendarIdentifier {
@@ -237,8 +243,12 @@ impl TimeZone {
         }
     }
 
+    /// Look up an IANA time zone name. Accepts the built-in zone table
+    /// plus `UTC`, `GMT`, `GMT+/-H` and other `Area/Location` names.
     pub fn from_name(name: &str) -> Option<Self> {
-        let _tz: Tz = name.parse().ok()?;
+        if !is_known_zone(name) {
+            return None;
+        }
         Some(Self {
             name: name.to_string(),
             seconds_from_gmt: 0,
@@ -255,7 +265,6 @@ impl TimeZone {
     pub fn from_gmt_offset(offset_seconds: i32) -> Self {
         let sign = if offset_seconds >= 0 { "+" } else { "-" };
         let hours = offset_seconds.abs() / 3600;
-        let mins = (offset_seconds.abs() % 3600) / 60;
         let name = format!("GMT{}{}", sign, hours);
         Self {
             name,
@@ -295,6 +304,129 @@ impl TimeZone {
     }
 }
 
+/// Common IANA time zone names, plus `UTC`/`GMT` forms. Anything shaped
+/// like `Area/Location` is also accepted so valid zones outside this
+/// table still resolve.
+fn is_known_zone(name: &str) -> bool {
+    if name == "UTC" || name == "GMT" || name == "UCT" || name == "Universal" {
+        return true;
+    }
+    if let Some(rest) = name.strip_prefix("GMT").or_else(|| name.strip_prefix("UTC")) {
+        if rest.is_empty() {
+            return true;
+        }
+        let digits = rest.trim_start_matches(['+', '-']);
+        if !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()) {
+            return true;
+        }
+    }
+    if KNOWN_ZONES.contains(&name) {
+        return true;
+    }
+    // `Area/Location` shape, e.g. `Europe/Berlin`.
+    let mut parts = name.split('/');
+    match (parts.next(), parts.next()) {
+        (Some(area), Some(_)) if !area.is_empty() => parts.all(|p| {
+            !p.is_empty()
+                && p.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'+'))
+        }),
+        _ => false,
+    }
+}
+
+const KNOWN_ZONES: &[&str] = &[
+    "Africa/Abidjan",
+    "Africa/Cairo",
+    "Africa/Casablanca",
+    "Africa/Johannesburg",
+    "Africa/Lagos",
+    "Africa/Nairobi",
+    "America/Anchorage",
+    "America/Argentina/Buenos_Aires",
+    "America/Bogota",
+    "America/Chicago",
+    "America/Denver",
+    "America/Halifax",
+    "America/Havana",
+    "America/Lima",
+    "America/Los_Angeles",
+    "America/Mexico_City",
+    "America/New_York",
+    "America/Phoenix",
+    "America/Santiago",
+    "America/Sao_Paulo",
+    "America/St_Johns",
+    "America/Toronto",
+    "America/Vancouver",
+    "America/Winnipeg",
+    "Asia/Almaty",
+    "Asia/Amman",
+    "Asia/Baghdad",
+    "Asia/Bahrain",
+    "Asia/Baku",
+    "Asia/Bangkok",
+    "Asia/Beirut",
+    "Asia/Colombo",
+    "Asia/Dhaka",
+    "Asia/Dubai",
+    "Asia/Hong_Kong",
+    "Asia/Jakarta",
+    "Asia/Jerusalem",
+    "Asia/Kabul",
+    "Asia/Karachi",
+    "Asia/Kathmandu",
+    "Asia/Kolkata",
+    "Asia/Kuala_Lumpur",
+    "Asia/Kuwait",
+    "Asia/Manila",
+    "Asia/Muscat",
+    "Asia/Qatar",
+    "Asia/Riyadh",
+    "Asia/Seoul",
+    "Asia/Shanghai",
+    "Asia/Singapore",
+    "Asia/Taipei",
+    "Asia/Tehran",
+    "Asia/Tokyo",
+    "Atlantic/Azores",
+    "Atlantic/Reykjavik",
+    "Australia/Adelaide",
+    "Australia/Brisbane",
+    "Australia/Darwin",
+    "Australia/Melbourne",
+    "Australia/Perth",
+    "Australia/Sydney",
+    "Europe/Amsterdam",
+    "Europe/Athens",
+    "Europe/Belgrade",
+    "Europe/Berlin",
+    "Europe/Brussels",
+    "Europe/Bucharest",
+    "Europe/Budapest",
+    "Europe/Copenhagen",
+    "Europe/Dublin",
+    "Europe/Helsinki",
+    "Europe/Istanbul",
+    "Europe/Kyiv",
+    "Europe/Lisbon",
+    "Europe/London",
+    "Europe/Madrid",
+    "Europe/Moscow",
+    "Europe/Oslo",
+    "Europe/Paris",
+    "Europe/Prague",
+    "Europe/Rome",
+    "Europe/Stockholm",
+    "Europe/Vienna",
+    "Europe/Warsaw",
+    "Europe/Zurich",
+    "Pacific/Auckland",
+    "Pacific/Fiji",
+    "Pacific/Guam",
+    "Pacific/Honolulu",
+];
+
 impl Default for TimeZone {
     fn default() -> Self {
         Self::system()
@@ -309,9 +441,6 @@ pub struct Locale {
     country_code: Option<String>,
 }
 
-static DEFAULT_LANG: &str = "en ";
-static DEFAULT_COUNTRY: &str = "US ";
-
 impl Locale {
     pub fn system() -> Self {
         Self {
@@ -322,11 +451,13 @@ impl Locale {
     }
 
     pub fn from_identifier(id: &str) -> Self {
-        let parts: Vec<&str> = id.split('_').collect();
+        let mut parts = id.split('_');
+        let language = parts.next().unwrap_or("en").to_string();
+        let country = parts.next().map(|s| s.to_string());
         Self {
             identifier: id.to_string(),
-            language_code: parts.first().unwrap_or(&DEFAULT_LANG.trim()).to_string(),
-            country_code: parts.get(1).map(|s| s.to_string()),
+            language_code: language,
+            country_code: country,
         }
     }
 
@@ -424,29 +555,22 @@ impl DateFormatter {
     }
 
     pub fn format(&self, date: &Date) -> String {
-        let naive = date.to_local();
-        naive.format(&self.format).to_string()
+        date.to_local().format(&self.format)
     }
 
     pub fn format_iso8601(&self, date: &Date) -> String {
-        let naive = date.to_utc();
-        let fmt_bytes: [u8; 16] = [
-            37, 89, 45, 109, 45, 100, 84, 72, 58, 77, 58, 83, 90, 0, 0, 0,
-        ];
-        let fmt_str = std::str::from_utf8(&fmt_bytes[..13]).unwrap();
-        naive.format(fmt_str).to_string()
+        date.to_utc().format("%Y-%m-%dT%H:%M:%SZ")
     }
 
     pub fn parse(&self, s: &str) -> Result<Date> {
         let naive = NaiveDateTime::parse_from_str(s, &self.format)
-            .map_err(|e| FoundationError::InvalidDateFormat(e.to_string()))?;
-        Ok(Date::from_timestamp(naive.and_utc().timestamp()))
+            .map_err(FoundationError::InvalidDateFormat)?;
+        Ok(Date::from_timestamp(naive.timestamp()))
     }
 
     pub fn parse_iso8601(&self, s: &str) -> Result<Date> {
-        let dt = chrono::DateTime::parse_from_rfc3339(s)
-            .map_err(|e| FoundationError::InvalidDateFormat(e.to_string()))?;
-        Ok(Date::from_timestamp(dt.timestamp()))
+        let ts = crate::datetime::parse_rfc3339(s).map_err(FoundationError::InvalidDateFormat)?;
+        Ok(Date::from_timestamp(ts))
     }
 }
 
@@ -461,18 +585,12 @@ pub struct ISO8601DateFormatter;
 
 impl ISO8601DateFormatter {
     pub fn string_from(date: &Date) -> String {
-        let naive = date.to_utc();
-        let fmt_bytes: [u8; 20] = [
-            37, 89, 45, 109, 45, 100, 84, 72, 58, 77, 58, 83, 37, 46, 51, 102, 90, 0, 0, 0,
-        ];
-        let fmt_str = std::str::from_utf8(&fmt_bytes[..17]).unwrap();
-        naive.format(fmt_str).to_string()
+        date.to_utc().format("%Y-%m-%dT%H:%M:%S%.3fZ")
     }
 
     pub fn date_from(s: &str) -> Result<Date> {
-        let dt = chrono::DateTime::parse_from_rfc3339(s)
-            .map_err(|e| FoundationError::InvalidDateFormat(e.to_string()))?;
-        Ok(Date::from_timestamp(dt.timestamp()))
+        let ts = crate::datetime::parse_rfc3339(s).map_err(FoundationError::InvalidDateFormat)?;
+        Ok(Date::from_timestamp(ts))
     }
 }
 

@@ -13,8 +13,6 @@ keywords = ["tontoo", "foundation", "utilities", "date", "url", "formatting"]
 categories = ["data-structures", "encoding"]
 
 [dependencies]
-chrono = { version = "0.4", features = ["serde"] }
-chrono-tz = "0.8"
 plist = "1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread"] }
 
