@@ -34,7 +34,10 @@ pub struct URL {
 pub fn from_str(s: &str) -> Result<Self>
 ```
 
-Returns `Err` when the URL is malformed.
+Own RFC 3986 parser (no `url` crate). Returns `Err` when the URL is
+malformed. An empty string yields an empty URL; anything else requires a
+scheme. The host is ASCII-lowercased; an empty path with an authority
+becomes `"/"`.
 
 ### Accessors
 
@@ -133,11 +136,10 @@ Default method is GET, timeout is 30 seconds.
 pub fn with_method(self, method: HTTPMethod) -> Self
 pub fn with_header(self, key: &str, value: &str) -> Self
 pub fn with_body(self, body: Vec<u8>) -> Self
-pub fn with_json<T: Serialize>(self, data: &T) -> Result<Self>
+pub fn with_json_value(self, data: &JsonValue) -> Self
+pub fn with_json_text(self, json: &str) -> Self
 pub fn with_timeout(self, seconds: u64) -> Self
 ```
-
-Returns `Err` from `with_json` when serialization fails.
 
 > **Note:** `URLRequest` only describes a request. Execution lives in
 > NetworkKit (`networkkit::http`), the single HTTP client for TontooOS.
@@ -165,7 +167,7 @@ comps.set_host("api.example.com");
 comps.set_path("/v1/users");
 assert_eq!(comps.string(), "https://api.example.com/v1/users");
 
-// Encoded query pairs (matches the `url` crate's query_pairs_mut)
+// Encoded query pairs (application/x-www-form-urlencoded, as before)
 let mut search = URLComponents::from_str("https://example.com/search").unwrap();
 search.append_query_pair("q", "Cafe Central");
 assert_eq!(search.string(), "https://example.com/search?q=Cafe+Central");

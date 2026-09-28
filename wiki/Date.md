@@ -67,6 +67,11 @@ pub fn to_utc(&self) -> NaiveDateTime
 pub fn to_local(&self) -> NaiveDateTime
 ```
 
+`NaiveDateTime` is the std-only civil date/time in `date.rs` (re-exported
+from the internal `datetime` module): proleptic Gregorian calendar,
+`format`/`parse_from_str` for the supported specifiers, RFC 3339 parsing.
+`to_local` applies the C library local offset; other targets use UTC.
+
 ## Calendar
 
 Calendar system for component-based date operations.
@@ -121,7 +126,12 @@ pub struct DateComponents {
 
 ## DateFormatter
 
-Formats dates to strings using format patterns.
+Formats dates to strings using format patterns. Supported specifiers:
+`%Y %y %m %d %e %H %M %S %T %R %F %D %j %s %b %B %a %A %p %I %z %Z %%`
+plus `%.3f %.6f %.9f`. Parsing (`parse`) supports the numeric subset
+(`%Y %y %m %d %e %H %M %S %T %F %R %D %%`); `parse_iso8601` and
+`ISO8601DateFormatter::date_from` accept RFC 3339 with optional fractions
+and `Z`/`+HH:MM` offsets.
 
 ```rust
 pub struct DateFormatter {
@@ -176,12 +186,17 @@ pub fn string_from_time_interval(&self, interval: f64) -> String
 ```rust
 pub fn system() -> Self
 pub fn from_name(name: &str) -> Option<Self>
+pub fn from_abbreviation(abbr: &str) -> Option<Self>
 pub fn from_gmt_offset(offset_seconds: i32) -> Self
 pub fn name(&self) -> &str
 pub fn seconds_from_gmt(&self) -> i32
+pub fn abbreviation(&self) -> &str
 pub fn is_daylight_saving_time(&self) -> bool
 pub fn known_zone_names() -> Vec<&'static str>
 ```
+
+`from_name` validates against a built-in IANA table plus `UTC`, `GMT`,
+`GMT+/-H` and other `Area/Location` names. Returns `None` otherwise.
 
 ## Locale
 

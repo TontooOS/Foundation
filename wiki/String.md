@@ -82,11 +82,12 @@ pub fn remaining(&self) -> &str
 
 ## RegularExpression
 
-Wrapper around `regex::Regex` with Foundation-like API.
+Own backtracking engine (`regex_engine.rs`) with a Foundation-like API.
+No third-party code.
 
 ```rust
 pub struct RegularExpression {
-    regex: Regex,
+    regex: RegexEngine,
     pattern: String,
 }
 ```
@@ -103,7 +104,13 @@ pub fn capture_groups(&self, text: &str) -> Vec<Vec<String>>
 pub fn pattern(&self) -> &str
 ```
 
-Returns `Err` when the pattern is invalid regex.
+Returns `Err` when the pattern is invalid or uses an unsupported
+construct. Supported: literals, `.`, `\d \D \w \W \s \S`, classes
+(`[a-z]`, `[^...]`), quantifiers (`* + ? {m} {m,} {m,n}`), groups
+(`(...)`, `(?:...)`), alternation (`|`), anchors (`^ $`), `\b \B` and
+`$n` replacements. Not supported: look-around, lazy quantifiers,
+backreferences, named groups, flags; classes are ASCII-only. See
+[Dependencies.md](Dependencies.md).
 
 ## DataDetector
 
@@ -112,7 +119,7 @@ Detects specific types of data in strings using pattern matching.
 ```rust
 pub struct DataDetector {
     kind: DetectorKind,
-    regex: Regex,
+    regex: RegexEngine,
 }
 ```
 

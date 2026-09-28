@@ -16,7 +16,7 @@ Concurrency primitives providing Apple Foundation-like Thread, OperationQueue, a
 | `ConditionLock` | Condition-based lock |
 | `DispatchQueue` | Serial/concurrent dispatch queue |
 | `DispatchGroup` | Group synchronization |
-| `async_runtime` | Central Tokio runtime re-export (`spawn_blocking`, `Runtime`) |
+| `async_runtime` | Std-only runtime (`spawn_blocking`, `Runtime`, `JoinError`) |
 
 ## Thread
 
@@ -154,20 +154,16 @@ pub fn notify<F>(&self, queue: &DispatchQueue, f: F)
 
 ## AsyncRuntime
 
-Central async runtime so frameworks share one Tokio version. Use
-`foundation::async_runtime` instead of depending on Tokio directly.
+Std-only async runtime so frameworks share one implementation without a
+third-party dependency. `spawn_blocking` runs a closure on a new OS thread
+and returns a future that is `.await`able on any executor. `RuntimeBuilder`
+flavors (`new_current_thread`, `new_multi_thread`) build the same
+thread-per-task runtime and exist for compatibility. `JoinError` reports
+panics (`is_panic`, `into_panic`) and cancellation (`is_cancelled`).
+`Handle::current` panics outside `block_on`.
 
 ```rust
-pub mod async_runtime;
-pub use tokio::task::{spawn_blocking, JoinHandle, JoinError};
-pub use tokio::runtime::{Runtime, Handle, RuntimeBuilder as RuntimeBuilder};
-```
-
-Driving async functions still requires an active Tokio runtime on the caller
-side (e.g. `#[tokio::main]` or `Runtime::block_on`).
-
-```rust
-use foundation::async_runtime::{RuntimeBuilder, spawn_blocking};
+use foundation::async_runtime::{Runtime, RuntimeBuilder, Handle, JoinHandle, JoinError, spawn_blocking};
 
 let rt = RuntimeBuilder::new_current_thread().build().unwrap();
 let result = rt.block_on(async { spawn_blocking(|| 40 + 2).await.unwrap() });

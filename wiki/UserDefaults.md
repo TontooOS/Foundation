@@ -50,8 +50,9 @@ pub fn bool(&self, key: &str) -> bool
 pub fn int(&self, key: &str) -> i64
 pub fn float(&self, key: &str) -> f32
 pub fn double(&self, key: &str) -> f64
-pub fn array<T: DeserializeOwned>(&self, key: &str) -> Option<T>
-pub fn dictionary<T: DeserializeOwned>(&self, key: &str) -> Option<T>
+pub fn json(&self, key: &str) -> Option<JsonValue>
+pub fn data(&self, key: &str) -> Option<&str>
+pub fn object(&self, key: &str) -> Option<&str>
 pub fn has_key(&self, key: &str) -> bool
 pub fn keys(&self) -> Vec<&str>
 pub fn count(&self) -> usize
@@ -67,8 +68,8 @@ pub fn set_bool(&mut self, key: &str, value: bool)
 pub fn set_int(&mut self, key: &str, value: i64)
 pub fn set_float(&mut self, key: &str, value: f32)
 pub fn set_double(&mut self, key: &str, value: f64)
-pub fn set_array<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()>
-pub fn set_dictionary<T: Serialize>(&mut self, key: &str, value: &T) -> Result<()>
+pub fn set_json(&mut self, key: &str, value: &JsonValue)
+pub fn set_data(&mut self, key: &str, value: &str)
 pub fn set_object(&mut self, key: &str, value: Option<&str>)
 pub fn remove(&mut self, key: &str)
 pub fn remove_all(&mut self)

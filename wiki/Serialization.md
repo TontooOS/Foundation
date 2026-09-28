@@ -19,26 +19,12 @@ Data serialization providing Apple Foundation-like JSON, PropertyList, and XML o
 
 ## JSONSerialization
 
-Static methods for JSON encoding and decoding.
+Concrete std-only helpers. The former generic `serde` methods
+(`to_data<T: Serialize>`, `from_string<T>`, ...) were removed; see
+[Dependencies.md](Dependencies.md).
 
 ```rust
 pub struct JSONSerialization;
-```
-
-### Encoding
-
-```rust
-pub fn to_data<T: Serialize>(object: &T) -> Result<Vec<u8>>
-pub fn to_pretty_data<T: Serialize>(object: &T) -> Result<Vec<u8>>
-pub fn to_string<T: Serialize>(object: &T) -> Result<String>
-pub fn to_pretty_string<T: Serialize>(object: &T) -> Result<String>
-```
-
-### Decoding
-
-```rust
-pub fn from_data<T: DeserializeOwned>(data: &[u8]) -> Result<T>
-pub fn from_string<T: DeserializeOwned>(s: &str) -> Result<T>
 ```
 
 ### Validation
@@ -46,14 +32,14 @@ pub fn from_string<T: DeserializeOwned>(s: &str) -> Result<T>
 ```rust
 pub fn is_valid_json(s: &str) -> bool
 pub fn is_valid_json_data(data: &[u8]) -> bool
-pub fn json_value(s: &str) -> Result<serde_json::Value>
+pub fn json_value(s: &str) -> Result<JsonValue>
 ```
 
 ### Std-only helpers (no serde needed by callers)
 
 These methods expose JSON through `std` types only (`String`,
-`HashMap<String, String>`), so downstream crates can drop their `serde`
-dependency. `serde_json` is used internally by Foundation only.
+`HashMap<String, String>`), backed by the std-only parser in
+`json.rs`.
 
 ```rust
 pub fn parse_string_field(s: &str, field: &str) -> Result<Option<String>>
@@ -77,8 +63,8 @@ an object or any value is not a string.
 
 ## JsonDocument
 
-Read-only parsed document for callers without `serde`. `serde_json` stays an
-implementation detail of Foundation.
+Read-only parsed document for callers without `serde`. The own JSON
+parser stays an implementation detail of Foundation.
 
 ```rust
 pub struct JsonDocument;
@@ -129,8 +115,7 @@ with the argument winning on conflicts.
 
 Recursive JSON value for callers without `serde`. Unlike `JsonDocument`
 (object roots only), `JsonValue` represents any document: objects, arrays
-and scalars at any depth. `serde_json` stays an implementation detail of
-Foundation.
+and scalars at any depth. Own parser and serializer; no third-party code.
 
 ```rust
 pub enum JsonValue { Null, Bool(bool), Integer(i64), Float(f64), Str(String), Array(Vec<JsonValue>), Object(Vec<(String, JsonValue)>) }
@@ -152,7 +137,9 @@ pub fn is_array(&self) -> bool
 pub fn stringify(&self, pretty: bool) -> String
 ```
 
-`JsonValue` implements `Default` (`Null`) and `Display` (compact JSON).
+`JsonValue` implements `Default` (`Null`), `Display` (compact JSON) and
+`Eq` (same caveat as `serde_json::Value`: a manually built `Float(NaN)`
+breaks reflexivity; parsed documents never contain `NaN`).
 
 `as_f64` coerces integers; `as_u64` accepts non-negative integers. Trees
 are built directly as enum values and rendered with `stringify`. `pointer`
@@ -161,7 +148,9 @@ escapes), returning `None` for bad pointers and missing members.
 
 ## PropertyList
 
-Static methods for property list serialization.
+XML property lists, parsed and written by the std-only `plist` module.
+Binary (`bplist`) input is rejected; `to_data_binary` writes the XML
+representation (see [Dependencies.md](Dependencies.md)).
 
 ```rust
 pub struct PropertyList;
@@ -170,12 +159,20 @@ pub struct PropertyList;
 ### Methods
 
 ```rust
-pub fn to_data_plist<T: Serialize>(object: &T) -> Result<Vec<u8>>
+pub fn to_data_plist(map: &HashMap<String, String>) -> Result<Vec<u8>>
 pub fn from_data_plist(data: &[u8]) -> Result<HashMap<String, String>>
-pub fn to_data_binary<T: Serialize>(object: &T) -> Result<Vec<u8>>
-pub fn from_data_binary(data: &[u8]) -> Result<plist::Value>
+pub fn to_data_binary(map: &HashMap<String, String>) -> Result<Vec<u8>>
+pub fn from_data_binary(data: &[u8]) -> Result<PlistValue>
 pub fn is_valid(data: &[u8]) -> bool
 ```
+
+### PlistValue
+
+```rust
+pub enum PlistValue { Str(String), Integer(i64), Real(f64), Bool(bool), Data(Vec<u8>), Array(Vec<PlistValue>), Dict(Vec<(String, PlistValue)>) }
+```
+
+`<date>` elements are kept as strings. `Data` holds base64-decoded bytes.
 
 ## XMLParser
 
@@ -192,24 +189,30 @@ pub fn find_elements_with_name_containing(&self, name: &str, attr_name: &str, at
 
 ## KeyedArchiver / KeyedUnarchiver
 
-Archive and unarchive objects using JSON.
+Archive and unarchive concrete value types (`JsonValue`, string maps,
+bytes) using JSON.
 
 ```rust
 // Archiver
-pub fn archive_root_object<T: Serialize>(object: &T) -> Result<Vec<u8>>
-pub fn archive_root_object_to_file<T: Serialize>(object: &T, path: &Path) -> Result<()>
+pub fn archive_json(value: &JsonValue) -> Vec<u8>
+pub fn archive_string_map(map: &HashMap<String, String>) -> Result<Vec<u8>>
+pub fn archive_bytes(data: &[u8]) -> Vec<u8>
+pub fn archive_to_file(data: &[u8], path: &Path) -> Result<()>
 
 // Unarchiver
-pub fn unarchive_root_object<T: DeserializeOwned>(data: &[u8]) -> Result<T>
-pub fn unarchive_root_object_from_file<T: DeserializeOwned>(path: &Path) -> Result<T>
+pub fn unarchive_json(data: &[u8]) -> Result<JsonValue>
+pub fn unarchive_string_map(data: &[u8]) -> Result<HashMap<String, String>>
+pub fn unarchive_bytes(data: &[u8]) -> Vec<u8>
+pub fn unarchive_from_file(path: &Path) -> Result<Vec<u8>>
 ```
 
 ## SecureCoding
 
-Trait for types that support secure coding. Auto-implemented for all `Serialize + DeserializeOwned` types.
+Serde-free trait for types that support secure coding. Implemented for
+`String`, `Vec<u8>`, `HashMap<String, String>` and `JsonValue`.
 
 ```rust
-pub trait SecureCoding: Serialize + DeserializeOwned {
+pub trait SecureCoding: Sized {
     fn supports_secure_coding() -> bool { true }
     fn encode(&self) -> Result<Vec<u8>>
     fn decode(data: &[u8]) -> Result<Self>
@@ -225,8 +228,8 @@ use std::collections::HashMap;
 // JSON
 let data: HashMap<String, String> = vec![("key".to_string(), "value".to_string())]
     .into_iter().collect();
-let json = JSONSerialization::to_string(&data).unwrap();
-let parsed: HashMap<String, String> = JSONSerialization::from_string(&json).unwrap();
+let json = JSONSerialization::stringify_string_map(&data, false).unwrap();
+let parsed = JSONSerialization::parse_flat_string_map(&json).unwrap();
 assert_eq!(parsed.get("key"), Some(&"value".to_string()));
 
 // Validation
@@ -234,8 +237,8 @@ assert!(JSONSerialization::is_valid_json(r#"{"a": 1}"#));
 assert!(!JSONSerialization::is_valid_json("not json"));
 
 // KeyedArchiver
-let data = KeyedArchiver::archive_root_object(&data).unwrap();
-let restored: HashMap<String, String> = KeyedUnarchiver::unarchive_root_object(&data).unwrap();
+let data = KeyedArchiver::archive_string_map(&data).unwrap();
+let restored = KeyedUnarchiver::unarchive_string_map(&data).unwrap();
 ```
 
 ## Cross References

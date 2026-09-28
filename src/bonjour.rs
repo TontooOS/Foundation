@@ -325,7 +325,7 @@ pub mod mdns {
                 "local.",
                 (),
                 port,
-                &[],
+                &properties[..],
             ).map_err(|e| FoundationError::Bonjour(e.to_string()))?)
             .map_err(|e| FoundationError::Bonjour(e.to_string()))?;
 
