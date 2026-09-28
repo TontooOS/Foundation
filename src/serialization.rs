@@ -144,7 +144,7 @@ impl JSONSerialization {
 /// Read-only JSON document with a std-only surface.
 ///
 /// The root must be an object. For arbitrary roots use [`JsonValue`].
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct JsonDocument {
     value: JsonValue,
 }

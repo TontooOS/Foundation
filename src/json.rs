@@ -167,6 +167,11 @@ impl Default for JsonValue {
     }
 }
 
+// Matches `serde_json::Value`: total `Eq` even though `Float(f64)` is
+// present. Parsed documents never contain `NaN`, but a manually built
+// `Float(NaN)` breaks reflexivity (`NaN != NaN`).
+impl Eq for JsonValue {}
+
 impl std::fmt::Display for JsonValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.stringify(false))
