@@ -18,19 +18,7 @@ pub struct URL {
 
 impl URL {
     pub fn from_str(s: &str) -> Result<Self> {
-        let parsed = url::Url::parse(s)
-            .map_err(|e| FoundationError::InvalidURL(e.to_string()))?;
-
-        Ok(Self {
-            scheme: Some(parsed.scheme().to_string()),
-            user: if parsed.username().is_empty() { None } else { Some(parsed.username().to_string()) },
-            password: parsed.password().map(|s| s.to_string()),
-            host: parsed.host_str().map(|s| s.to_string()),
-            port: parsed.port(),
-            path: parsed.path().to_string(),
-            query: parsed.query().map(|s| s.to_string()),
-            fragment: parsed.fragment().map(|s| s.to_string()),
-        })
+        parse_url(s).map_err(|e| FoundationError::InvalidURL(e.to_string()))
     }
 
     pub fn scheme(&self) -> Option<&str> {
@@ -249,6 +237,154 @@ impl URLComponents {
     }
 }
 
+/// Minimal RFC 3986 URL parser (absolute URLs plus the empty string).
+///
+/// An empty string yields an empty URL. Anything else requires a scheme.
+/// The host is ASCII-lowercased. An empty path with an authority becomes
+/// `"/"`, matching the previous `url` crate behavior.
+fn parse_url(s: &str) -> std::result::Result<URL, UrlParseError> {
+    if s.is_empty() {
+        return Ok(URL {
+            scheme: None,
+            user: None,
+            password: None,
+            host: None,
+            port: None,
+            path: String::new(),
+            query: None,
+            fragment: None,
+        });
+    }
+    let colon = s.find(':').ok_or(UrlParseError("missing scheme"))?;
+    let scheme = &s[..colon];
+    if !is_valid_scheme(scheme) {
+        return Err(UrlParseError("bad scheme"));
+    }
+    let mut rest = &s[colon + 1..];
+    let mut url = URL {
+        scheme: Some(scheme.to_ascii_lowercase()),
+        user: None,
+        password: None,
+        host: None,
+        port: None,
+        path: String::new(),
+        query: None,
+        fragment: None,
+    };
+    if let Some(after) = rest.strip_prefix("//") {
+        rest = after;
+        let auth_end = rest.find(|c| c == '/' || c == '?' || c == '#').unwrap_or(rest.len());
+        parse_authority(&rest[..auth_end], &mut url)?;
+        rest = &rest[auth_end..];
+    }
+    // Path, query, fragment.
+    let mut path_end = rest.len();
+    if let Some(i) = rest.find('?') {
+        path_end = path_end.min(i);
+    }
+    if let Some(i) = rest.find('#') {
+        path_end = path_end.min(i);
+    }
+    url.path = rest[..path_end].to_string();
+    rest = &rest[path_end..];
+    if let Some(after) = rest.strip_prefix('?') {
+        let end = after.find('#').unwrap_or(after.len());
+        url.query = Some(after[..end].to_string());
+        rest = &after[end..];
+    }
+    if let Some(after) = rest.strip_prefix('#') {
+        url.fragment = Some(after.to_string());
+    } else if !rest.is_empty() {
+        return Err(UrlParseError("bad URL"));
+    }
+    if url.host.is_some() && url.path.is_empty() {
+        url.path = "/".to_string();
+    }
+    Ok(url)
+}
+
+fn is_valid_scheme(scheme: &str) -> bool {
+    let mut chars = scheme.chars();
+    match chars.next() {
+        Some(c) if c.is_ascii_alphabetic() => {}
+        _ => return false,
+    }
+    scheme
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
+}
+
+fn parse_authority(auth: &str, url: &mut URL) -> std::result::Result<(), UrlParseError> {
+    let (userinfo, hostport) = match auth.rfind('@') {
+        Some(i) => (Some(&auth[..i]), &auth[i + 1..]),
+        None => (None, auth),
+    };
+    if let Some(info) = userinfo {
+        let mut parts = info.splitn(2, ':');
+        let user = parts.next().unwrap_or("");
+        if !user.is_empty() {
+            url.user = Some(user.to_string());
+        }
+        if let Some(pass) = parts.next() {
+            url.password = Some(pass.to_string());
+        }
+    }
+    if hostport.is_empty() {
+        return Ok(());
+    }
+    let (host, port) = if let Some(bracketed) = hostport.strip_prefix('[') {
+        let end = bracketed.find(']').ok_or(UrlParseError("bad IPv6 host"))?;
+        let host = &bracketed[..end];
+        let rest = &bracketed[end + 1..];
+        let port = if let Some(p) = rest.strip_prefix(':') {
+            Some(parse_port(p)?)
+        } else if !rest.is_empty() {
+            return Err(UrlParseError("bad authority"));
+        } else {
+            None
+        };
+        (host, port)
+    } else if let Some(i) = hostport.rfind(':') {
+        let (h, p) = (&hostport[..i], &hostport[i + 1..]);
+        // A bare colon with an empty port is allowed; a non-numeric
+        // port is an error.
+        if p.is_empty() {
+            (h, None)
+        } else {
+            (h, Some(parse_port(p)?))
+        }
+    } else {
+        (hostport, None)
+    };
+    if host.is_empty() {
+        return Ok(());
+    }
+    if host.bytes().any(|b| b.is_ascii_whitespace() || b.is_ascii_control()) {
+        return Err(UrlParseError("bad host"));
+    }
+    url.host = Some(host.to_ascii_lowercase());
+    url.port = port;
+    Ok(())
+}
+
+fn parse_port(s: &str) -> std::result::Result<u16, UrlParseError> {
+    if s.is_empty() || !s.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(UrlParseError("bad port"));
+    }
+    s.parse::<u16>().map_err(|_| UrlParseError("bad port"))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct UrlParseError(&'static str);
+
+impl std::fmt::Display for UrlParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for UrlParseError {}
+
 /// Percent-encode one query key or value (`application/x-www-form-urlencoded`
 /// byte serializer, matching the `url` crate).
 fn encode_query_component(input: &str) -> String {
@@ -360,5 +496,50 @@ impl URLRequest {
 impl std::fmt::Display for URL {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.absolute_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn userinfo_and_fragment() {
+        let url = URL::from_str("https://user:pass@example.com/p#frag").unwrap();
+        assert_eq!(url.absolute_string(), "https://user:pass@example.com/p#frag");
+        assert_eq!(url.fragment(), Some("frag"));
+    }
+
+    #[test]
+    fn host_is_lowercased_and_empty_path_becomes_root() {
+        let url = URL::from_str("HTTPS://Example.COM").unwrap();
+        assert_eq!(url.scheme(), Some("https"));
+        assert_eq!(url.host(), Some("example.com"));
+        assert_eq!(url.path(), "/");
+    }
+
+    #[test]
+    fn ipv6_with_port() {
+        let url = URL::from_str("http://[::1]:8080/x").unwrap();
+        assert_eq!(url.host(), Some("::1"));
+        assert_eq!(url.port(), Some(8080));
+    }
+
+    #[test]
+    fn file_url() {
+        let url = URL::from_str("file:///tmp/a.txt").unwrap();
+        assert!(url.is_file_url());
+        assert_eq!(url.path(), "/tmp/a.txt");
+    }
+
+    #[test]
+    fn rejects_bad_urls() {
+        for bad in ["", "://x", "no-scheme", "http://exa mple.com", "http://x:abc/", "http://[::1/x"] {
+            if bad.is_empty() {
+                assert!(URL::from_str(bad).is_ok());
+            } else {
+                assert!(URL::from_str(bad).is_err(), "should reject {bad:?}");
+            }
+        }
     }
 }
