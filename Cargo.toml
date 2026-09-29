@@ -3,7 +3,7 @@ crate-type = ["cdylib", "rlib"]
 
 [package]
 name = "foundation"
-version = "26.1.0"
+version = "27.0.0"
 edition = "2021"
 authors = ["arlomu"]
 description = "Foundation framework for TontooOS – Apple Foundation reimplemented in Rust for TontooOS"

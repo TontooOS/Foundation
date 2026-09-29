@@ -4,7 +4,7 @@ Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data
 
 - Repository: https://github.com/arlomu/TontooFoundation
 - License: TCL
-- Version: 26.1.0
+- Version: 27.0.0
 
 ## Feature Index
 
