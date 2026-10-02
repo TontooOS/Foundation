@@ -13,6 +13,43 @@ File system operations providing Apple Foundation-like FileManager, FileHandle, 
 | `FileEnumerator` | Recursive directory traversal |
 | `FileManagerDirectory` | Standard directory enum |
 | `FileManagerDomain` | Domain enum for directory lookup |
+| `FileLock` | Advisory whole-file lock (`flock(2)`) |
+
+## FileLock
+
+```rust
+impl FileLock {
+    pub fn exclusive(path: impl AsRef<Path>) -> Result<Self>
+    pub fn shared(path: impl AsRef<Path>) -> Result<Self>
+    pub fn try_exclusive(path: impl AsRef<Path>) -> Result<Option<Self>>
+    pub fn try_shared(path: impl AsRef<Path>) -> Result<Option<Self>>
+    pub fn path(&self) -> &Path
+    pub fn unlock(&self) -> Result<()>
+}
+```
+
+- The lock lives on an open file descriptor, so the kernel releases it when
+  the process exits, even on a panic. Dropping the lock also unlocks.
+- The lock file is created if missing and is never truncated.
+- `exclusive` / `shared` block until the lock is available.
+- `try_exclusive` / `try_shared` return `Ok(None)` when the lock is held
+  elsewhere instead of waiting.
+- Several shared locks may coexist; an exclusive lock excludes everything.
+- Locks are **advisory**: every participant must use `FileLock`. A process
+  that ignores the lock file is unaffected.
+- `unlock` releases early and is safe to call more than once.
+- Non-Unix targets return
+  `Err(FoundationError::Io)` with `ErrorKind::Unsupported`.
+
+```rust
+use foundation::file::FileLock;
+
+let lock = FileLock::exclusive("/tmp/data/.lock")?;
+assert!(FileLock::try_exclusive("/tmp/data/.lock")?.is_none());
+drop(lock);
+assert!(FileLock::try_exclusive("/tmp/data/.lock")?.is_some());
+# Ok::<(), foundation::error::FoundationError>(())
+```
 
 ## FileManager
 

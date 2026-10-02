@@ -468,3 +468,175 @@ impl Bundle {
         None
     }
 }
+
+// ------------------------------------------------------------------ FileLock
+
+/// Advisory whole-file lock backed by the POSIX `flock(2)` syscall.
+///
+/// The lock lives on an open file descriptor, so it is released by the kernel
+/// when the process exits, even on a panic or `abort`. Locks are advisory:
+/// every participant must use this type.
+pub struct FileLock {
+    file: std::fs::File,
+    path: PathBuf,
+}
+
+#[cfg(unix)]
+fn flock(file: &std::fs::File, operation: libc::c_int) -> std::io::Result<()> {
+    // SAFETY: `file` owns a valid descriptor for the whole call, and `flock`
+    // only inspects the descriptor.
+    let rc = unsafe { libc::flock(file.as_raw_fd(), operation) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(not(unix))]
+fn flock(_file: &std::fs::File, _operation: i32) -> std::io::Result<()> {
+    Err(std::io::Error::new(
+        std::io::ErrorKind::Unsupported,
+        "FileLock requires flock(2)",
+    ))
+}
+
+impl FileLock {
+    /// Open (creating if needed) `path` and take an exclusive lock, blocking
+    /// until it is available.
+    pub fn exclusive(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open(path, LOCK_EX)
+    }
+
+    /// Open (creating if needed) `path` and take a shared lock, blocking
+    /// until it is available.
+    pub fn shared(path: impl AsRef<Path>) -> Result<Self> {
+        Self::open(path, LOCK_SH)
+    }
+
+    /// Take an exclusive lock without blocking.
+    ///
+    /// Returns `Ok(None)` when the lock is held by someone else. The lock
+    /// file is still created, matching the blocking variants.
+    pub fn try_exclusive(path: impl AsRef<Path>) -> Result<Option<Self>> {
+        let lock = Self::acquire(path, LOCK_EX | LOCK_NB)?;
+        Ok(lock)
+    }
+
+    /// Take a shared lock without blocking. `Ok(None)` when already held
+    /// exclusively by someone else.
+    pub fn try_shared(path: impl AsRef<Path>) -> Result<Option<Self>> {
+        let lock = Self::acquire(path, LOCK_SH | LOCK_NB)?;
+        Ok(lock)
+    }
+
+    fn open(path: impl AsRef<Path>, operation: i32) -> Result<Self> {
+        match Self::acquire(path, operation)? {
+            Some(lock) => Ok(lock),
+            None => Err(FoundationError::Unknown("lock unavailable".to_string())),
+        }
+    }
+
+    fn acquire(path: impl AsRef<Path>, operation: i32) -> Result<Option<Self>> {
+        let path = path.as_ref();
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .truncate(false)
+            .open(path)?;
+        match flock(&file, operation) {
+            Ok(()) => Ok(Some(Self {
+                file,
+                path: path.to_path_buf(),
+            })),
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+            Err(e) => Err(FoundationError::Io(e)),
+        }
+    }
+
+    /// The path of the lock file.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Release the lock early. Dropping the lock does this too.
+    pub fn unlock(&self) -> Result<()> {
+        flock(&self.file, LOCK_UN).map_err(FoundationError::Io)
+    }
+}
+
+impl Drop for FileLock {
+    fn drop(&mut self) {
+        let _ = flock(&self.file, LOCK_UN);
+    }
+}
+
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
+
+#[cfg(unix)]
+const LOCK_SH: i32 = libc::LOCK_SH;
+#[cfg(unix)]
+const LOCK_EX: i32 = libc::LOCK_EX;
+#[cfg(unix)]
+const LOCK_NB: i32 = libc::LOCK_NB;
+#[cfg(unix)]
+const LOCK_UN: i32 = libc::LOCK_UN;
+
+#[cfg(test)]
+mod file_lock_tests {
+    use super::*;
+
+    fn temp_path(name: &str) -> PathBuf {
+        let mut path = std::env::temp_dir();
+        path.push(format!(
+            "tontoo-foundation-lock-{}-{}-{name}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        ));
+        path
+    }
+
+    #[test]
+    fn exclusive_lock_excludes_a_second_holder() {
+        let path = temp_path("exclusive");
+        let first = FileLock::exclusive(&path).unwrap();
+        assert!(FileLock::try_exclusive(&path).unwrap().is_none());
+        drop(first);
+        assert!(FileLock::try_exclusive(&path).unwrap().is_some());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn shared_locks_coexist_with_each_other() {
+        let path = temp_path("shared");
+        let _first = FileLock::shared(&path).unwrap();
+        assert!(FileLock::try_shared(&path).unwrap().is_some());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn unlock_releases_the_lock() {
+        let path = temp_path("unlock");
+        let lock = FileLock::exclusive(&path).unwrap();
+        assert!(FileLock::try_exclusive(&path).unwrap().is_none());
+        lock.unlock().unwrap();
+        assert!(FileLock::try_exclusive(&path).unwrap().is_some());
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn lock_file_is_created_and_reported() {
+        let path = temp_path("created");
+        assert!(!path.exists());
+        let lock = FileLock::exclusive(&path).unwrap();
+        assert!(path.exists());
+        assert_eq!(lock.path(), path.as_path());
+        drop(lock);
+        let _ = std::fs::remove_file(&path);
+    }
+}

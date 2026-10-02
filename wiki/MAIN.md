@@ -16,7 +16,7 @@ Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data
 | Collections | [Collections.md](Collections.md) | Array, Dictionary, Set |
 | Date | [Date.md](Date.md) | Date, Calendar, DateFormatter, TimeZone, Locale |
 | URL | [URL.md](URL.md) | URL, URLComponents, URLRequest |
-| File | [File.md](File.md) | FileManager, FileHandle, Bundle |
+| File | [File.md](File.md) | FileManager, FileHandle, Bundle, FileLock |
 | Serialization | [Serialization.md](Serialization.md) | JSON, PropertyList, XML, KeyedArchiver |
 | YAML | [YAML.md](YAML.md) | Own YAML parser and emitter on top of `JsonValue` |
 | Formatting | [Formatting.md](Formatting.md) | Number, ByteCount, Measurement, List formatters |
@@ -58,6 +58,7 @@ See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 
 ## Changelog
 
+- 2026-10-02: New `file::FileLock` (POSIX `flock(2)` wrapper, exclusive / shared plus non-blocking variants), replacing the `fs2` dependency. The `datetime`, `json`, `paths`, `plist`, `regex_engine`, `sysinfo` and `uuid` modules are now `pub` so downstream crates can use them directly. See [File.md](File.md).
 - 2026-10-02: New public `base64` module (RFC 4648, standard and URL-safe
   alphabets, unpadded input, `decode_exact`). The `plist` module now uses it
   instead of its private copy. See [Dependencies.md](Dependencies.md).
