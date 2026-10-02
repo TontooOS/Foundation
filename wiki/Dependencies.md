@@ -18,6 +18,7 @@ something outside the language that cannot be reimplemented reasonably
 | `regex` | Removed | `regex_engine` module: small backtracking engine for the supported subset |
 | `quick-xml` | Removed | Was unused; `XMLParser` is a std-only string scanner |
 | `plist` | Removed | `plist` module: own XML plist reader and writer plus `PlistValue` |
+| `base64` | Removed | `base64` module: RFC 4648 encoder/decoder, standard and URL-safe alphabets |
 | `dirs` | Removed | `paths` module: XDG environment lookup with home-relative fallbacks |
 | `num` | Removed | Was unused |
 | `num_cpus` | Removed | `std::thread::available_parallelism` with a fallback of `1` |
@@ -60,6 +61,31 @@ numeric subset. `parse_iso8601` and `ISO8601DateFormatter::date_from`
 accept RFC 3339 (`2006-01-02T15:04:05Z` with optional fraction and
 `+HH:MM` offsets). `TimeZone::from_name` validates against a built-in
 IANA table plus `UTC`, `GMT` and `GMT+/-H` names.
+
+## `base64` Behavior
+
+```rust
+pub enum Alphabet { Standard, UrlSafe }
+pub fn encode(data: &[u8]) -> String
+pub fn encode_urlsafe(data: &[u8]) -> String
+pub fn encode_with(data: &[u8], alphabet: Alphabet) -> String
+pub fn encode_into(data: &[u8], out: &mut String)
+pub fn decode(text: &str) -> Result<Vec<u8>>
+pub fn decode_exact(text: &str, len: usize) -> Result<Vec<u8>>
+```
+
+- Output is always padded with `=` to a multiple of four characters.
+- `decode` skips ASCII whitespace, accepts unpadded tails (2 symbols give
+  1 byte, 3 symbols give 2) and accepts both the standard (`+` `/`) and
+  URL-safe (`-` `_`) symbols, so `decode(encode_urlsafe(x))` round-trips.
+- Returns `Err(FoundationError::Parse)` for symbols outside both
+  alphabets, for a single leftover symbol, for more than two `=`, for
+  padding followed by data, and for a lone `=` at the end.
+- `decode_exact` additionally fails unless the output is exactly `len`
+  bytes; use it for fixed-size inputs such as keys and digests.
+- `encode_into` clears `out` first and avoids the intermediate `String`.
+- The `plist` module uses this module for `PlistValue::Data` instead of
+  keeping a private copy.
 
 ## `PlistValue`
 

@@ -57,6 +57,9 @@ See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 
 ## Changelog
 
+- 2026-10-02: New public `base64` module (RFC 4648, standard and URL-safe
+  alphabets, unpadded input, `decode_exact`). The `plist` module now uses it
+  instead of its private copy. See [Dependencies.md](Dependencies.md).
 - 2026-09-28: Native `NSPasteboard` text clipboard (hand-written Wayland
   data-control and X11 ICCCM backends, std-only plus `libc`); used by
   TontooUI text fields instead of `arboard`.

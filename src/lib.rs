@@ -4,6 +4,7 @@
 //! Foundation provides on Apple platforms, adapted for TontooOS on Linux.
 
 pub mod async_runtime;
+pub mod base64;
 pub mod error;
 mod datetime;
 mod json;
@@ -38,6 +39,7 @@ pub const FOUNDATION_VERSION: (u32, u32, u32) = (0, 1, 0);
 /// Convenience prelude that re-exports the most commonly used types.
 pub mod prelude {
     pub use crate::async_runtime::{spawn_blocking, JoinError, JoinHandle, Runtime, Handle, RuntimeBuilder};
+    pub use crate::base64::{decode as base64_decode, encode as base64_encode, encode_urlsafe as base64_encode_urlsafe, Alphabet as Base64Alphabet};
     pub use crate::error::{FoundationError, Result};
     pub use crate::string::{TString, Scanner, RegularExpression, DataDetector, DetectorKind};
     pub use crate::collections::{Array, Dictionary, OrderedMap, OrderedIter, Set};

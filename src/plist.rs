@@ -5,6 +5,7 @@
 //! Binary (`bplist`) property lists are not supported and are rejected
 //! with an error.
 
+use crate::base64;
 use crate::error::{FoundationError, Result};
 use std::collections::HashMap;
 
@@ -30,7 +31,7 @@ impl PlistValue {
             Self::Real(f) => format!("{f:?}"),
             Self::Bool(true) => "true".to_string(),
             Self::Bool(false) => "false".to_string(),
-            Self::Data(d) => base64_encode(d),
+            Self::Data(d) => base64::encode(d),
             Self::Array(items) => {
                 let parts: Vec<String> = items.iter().map(|v| v.as_string()).collect();
                 format!("[{}]", parts.join(", "))
@@ -130,7 +131,7 @@ fn write_value(value: &PlistValue, out: &mut String, level: usize) {
         PlistValue::Bool(true) => out.push_str(&format!("{pad}<true/>\n")),
         PlistValue::Bool(false) => out.push_str(&format!("{pad}<false/>\n")),
         PlistValue::Data(d) => {
-            out.push_str(&format!("{pad}<data>{}</data>\n", base64_encode(d)));
+            out.push_str(&format!("{pad}<data>{}</data>\n", base64::encode(d)));
         }
         PlistValue::Array(items) => {
             out.push_str(&format!("{pad}<array>\n"));
@@ -150,80 +151,6 @@ fn write_value(value: &PlistValue, out: &mut String, level: usize) {
             out.push_str(&format!("{pad}</dict>\n"));
         }
     }
-}
-
-const B64_ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-fn base64_encode(data: &[u8]) -> String {
-    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
-    for chunk in data.chunks(3) {
-        let mut n: u32 = 0;
-        for (i, b) in chunk.iter().enumerate() {
-            n |= (*b as u32) << (16 - 8 * i);
-        }
-        let pad = 3 - chunk.len();
-        for i in 0..4 - pad {
-            out.push(B64_ALPHABET[((n >> (18 - 6 * i)) & 0x3F) as usize] as char);
-        }
-        for _ in 0..pad {
-            out.push('=');
-        }
-    }
-    out
-}
-
-fn base64_value(b: u8) -> Option<u32> {
-    match b {
-        b'A'..=b'Z' => Some((b - b'A') as u32),
-        b'a'..=b'z' => Some((b - b'a' + 26) as u32),
-        b'0'..=b'9' => Some((b - b'0' + 52) as u32),
-        b'+' => Some(62),
-        b'/' => Some(63),
-        _ => None,
-    }
-}
-
-fn base64_decode(text: &str) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    let mut quad = [0u32; 4];
-    let mut qlen = 0usize;
-    let mut padding = 0usize;
-    for b in text.bytes().filter(|b| !b.is_ascii_whitespace()) {
-        if b == b'=' {
-            quad[qlen] = 0;
-            qlen += 1;
-            padding += 1;
-        } else if let Some(v) = base64_value(b) {
-            if padding > 0 {
-                return Err(FoundationError::InvalidPlist("bad base64".to_string()));
-            }
-            quad[qlen] = v;
-            qlen += 1;
-        } else {
-            return Err(FoundationError::InvalidPlist("bad base64".to_string()));
-        }
-        if qlen == 4 {
-            if padding > 2 {
-                return Err(FoundationError::InvalidPlist("bad base64".to_string()));
-            }
-            let n = (quad[0] << 18) | (quad[1] << 12) | (quad[2] << 6) | quad[3];
-            out.push((n >> 16) as u8);
-            if padding < 2 {
-                out.push((n >> 8) as u8);
-            }
-            if padding == 0 {
-                out.push(n as u8);
-            }
-            qlen = 0;
-            padding = 0;
-        }
-    }
-    if qlen != 0 {
-        return Err(FoundationError::InvalidPlist(
-            "truncated base64".to_string(),
-        ));
-    }
-    Ok(out)
 }
 
 struct XmlParser<'a> {
@@ -335,7 +262,7 @@ impl<'a> XmlParser<'a> {
                     "real" => text.trim().parse::<f64>().map(PlistValue::Real).map_err(|_| {
                         self.error("bad real")
                     })?,
-                    "data" => PlistValue::Data(base64_decode(&text)?),
+                    "data" => PlistValue::Data(base64::decode(&text).map_err(|e| FoundationError::InvalidPlist(e.to_string()))?),
                     _ => PlistValue::Str(unescape(&text)?),
                 };
                 Ok(value)
@@ -571,11 +498,11 @@ mod tests {
 
     #[test]
     fn base64_vectors() {
-        assert_eq!(base64_encode(b""), "");
-        assert_eq!(base64_encode(b"f"), "Zg==");
-        assert_eq!(base64_encode(b"fo"), "Zm8=");
-        assert_eq!(base64_encode(b"foo"), "Zm9v");
-        assert_eq!(base64_decode("Zm9v").unwrap(), b"foo");
-        assert!(base64_decode("!!!").is_err());
+        assert_eq!(base64::encode(b""), "");
+        assert_eq!(base64::encode(b"f"), "Zg==");
+        assert_eq!(base64::encode(b"fo"), "Zm8=");
+        assert_eq!(base64::encode(b"foo"), "Zm9v");
+        assert_eq!(base64::decode("Zm9v").unwrap(), b"foo");
+        assert!(base64::decode("!!!").is_err());
     }
 }
