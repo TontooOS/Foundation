@@ -18,6 +18,7 @@ Apple Foundation reimplemented in Rust for TontooOS on Linux. Provides core data
 | URL | [URL.md](URL.md) | URL, URLComponents, URLRequest |
 | File | [File.md](File.md) | FileManager, FileHandle, Bundle |
 | Serialization | [Serialization.md](Serialization.md) | JSON, PropertyList, XML, KeyedArchiver |
+| YAML | [YAML.md](YAML.md) | Own YAML parser and emitter on top of `JsonValue` |
 | Formatting | [Formatting.md](Formatting.md) | Number, ByteCount, Measurement, List formatters |
 | Measurement | [Measurement.md](Measurement.md) | Measurement + 13 Unit categories |
 | Notification | [Notification.md](Notification.md) | NotificationCenter |
@@ -60,6 +61,9 @@ See [String.md](String.md), [Date.md](Date.md), [URL.md](URL.md) for details.
 - 2026-10-02: New public `base64` module (RFC 4648, standard and URL-safe
   alphabets, unpadded input, `decode_exact`). The `plist` module now uses it
   instead of its private copy. See [Dependencies.md](Dependencies.md).
+- 2026-10-02: New `yaml` module: own YAML 1.2 core-schema parser and emitter
+  returning `JsonValue`, so config readers (LaunchPad `.service` files and
+  friends) need no external crate. See [YAML.md](YAML.md).
 - 2026-09-28: Native `NSPasteboard` text clipboard (hand-written Wayland
   data-control and X11 ICCCM backends, std-only plus `libc`); used by
   TontooUI text fields instead of `arboard`.

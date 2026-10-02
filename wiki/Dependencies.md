@@ -19,6 +19,7 @@ something outside the language that cannot be reimplemented reasonably
 | `quick-xml` | Removed | Was unused; `XMLParser` is a std-only string scanner |
 | `plist` | Removed | `plist` module: own XML plist reader and writer plus `PlistValue` |
 | `base64` | Removed | `base64` module: RFC 4648 encoder/decoder, standard and URL-safe alphabets |
+| `serde_yaml` | Removed | `yaml` module: own YAML 1.2 core-schema parser and emitter on top of `JsonValue` |
 | `dirs` | Removed | `paths` module: XDG environment lookup with home-relative fallbacks |
 | `num` | Removed | Was unused |
 | `num_cpus` | Removed | `std::thread::available_parallelism` with a fallback of `1` |
@@ -126,6 +127,7 @@ pub enum PlistValue {
 ## Cross References
 
 - [Serialization.md](Serialization.md) – JSON, plist and XML APIs
+- [YAML.md](YAML.md) – YAML parser and emitter
 - [Date.md](Date.md) – date, calendar, time zone and locale APIs
 - [URL.md](URL.md) – URL parsing rules
 - [String.md](String.md) – regular expression subset

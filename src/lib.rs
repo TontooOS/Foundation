@@ -29,6 +29,7 @@ pub mod threading;
 pub mod undo;
 pub mod predicate;
 pub mod progress;
+pub mod yaml;
 
 #[cfg(feature = "bonjour")]
 pub mod bonjour;
@@ -47,6 +48,7 @@ pub mod prelude {
     pub use crate::url::{URL, URLComponents, HTTPMethod, URLRequest};
     pub use crate::file::{FileManager, FileHandle, Bundle};
     pub use crate::serialization::{JSONSerialization, JsonDocument, JsonObject, JsonValue, PropertyList};
+    pub use crate::yaml::{parse as yaml_parse, parse_bytes as yaml_parse_bytes, to_yaml as yaml_to_yaml, parse_documents as yaml_parse_documents};
     pub use crate::formatting::{
         NumberFormatter, ByteCountFormatter,
         MeasurementFormatter,
